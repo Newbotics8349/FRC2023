@@ -18,7 +18,10 @@ import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import com.ctre.phoenix.motorcontrol.ControlMode;
 
 import edu.wpi.first.wpilibj.Joystick;
-
+import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.GenericHID.Hand;
+import edu.wpi.first.wpilibj.XboxController.Axis;
+import edu.wpi.first.wpilibj.XboxController.Axis.*;
 
 
 /**
@@ -32,11 +35,27 @@ public class Robot extends TimedRobot {
   private static final String kCustomAuto = "My Auto";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
-  private VictorSPX victorSPX;
 
+  // controls
   private Joystick joystick;
 
+  //drive motors and control objects
+  private CANSparkMax moveMotorID5;
+  private CANSparkMax moveMotorID7;
+  private SpeedControllerGroup rightMoveMotors;
+  private CANSparkMax moveMotorID6;
+  private CANSparkMax moveMotorID8;
+  private SpeedControllerGroup leftMoveMotors;
   private DifferentialDrive differentialDrive;
+  
+  //functional motors
+  private VictorSPX funcMotor1;
+  private VictorSPX funcMotor2;
+  private VictorSPX funcMotor3;
+  private VictorSPX funcMotor4;
+  
+  
+  
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
@@ -47,9 +66,26 @@ public class Robot extends TimedRobot {
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
 
-    victorSPX = new VictorSPX(1);
-    joystick = new Joystick(0);
-    differentialDrive = new DifferentialDrive(new CANSparkMax(6,MotorType.kBrushless), new CANSparkMax(5,MotorType.kBrushless));
+    // controls
+    joystick = new Joystick(0); // Controller in port 0
+
+    //drive motors and control objects
+    moveMotorID5 = new CANSparkMax(5,MotorType.kBrushless);
+    moveMotorID7 = new CANSparkMax(7,MotorType.kBrushed);
+    rightMoveMotors = new SpeedControllerGroup(moveMotorID5, moveMotorID7);
+    moveMotorID6 = new CANSparkMax(6,MotorType.kBrushless);
+    moveMotorID8 = new CANSparkMax(8,MotorType.kBrushed);
+    leftMoveMotors = new SpeedControllerGroup(moveMotorID6, moveMotorID8);
+
+
+    differentialDrive = new DifferentialDrive(leftMoveMotors, rightMoveMotors);
+    
+    //functional motors
+    funcMotor1 = new VictorSPX(1);
+    funcMotor2 = new VictorSPX(2);
+    funcMotor3 = new VictorSPX(3);
+    funcMotor4 = new VictorSPX(4);
+
   }
 
   /**
@@ -102,22 +138,16 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
-/*
-    if (joystick.getRawButtonPressed(1)){
-      btnPressed = true;
-    }
-    if (joystick.getRawButtonReleased(1)){
-      btnPressed = false;
-    }*/
-differentialDrive.arcadeDrive(joystick.getX(), joystick.getY());
 
-    if (joystick.getRawButton(1)){
-      victorSPX.set(ControlMode.PercentOutput, -0.5);
+  differentialDrive.arcadeDrive(joystick.getX(), joystick.getY());
 
-    }
-    else{
-      victorSPX.set(ControlMode.PercentOutput, 0);
-    }
+  if (joystick.getRawButton(1)){
+    victorSPX.set(ControlMode.PercentOutput, -0.5);
+
+  }
+  else{
+    victorSPX.set(ControlMode.PercentOutput, 0);
+  }
 
     
   }
