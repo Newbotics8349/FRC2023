@@ -10,6 +10,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.CAN;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.motorcontrol.MotorControllerGroup;
 
 import com.ctre.phoenix.motorcontrol.VictorSPXControlMode;
 import com.ctre.phoenix.motorcontrol.can.VictorSPX;
@@ -18,10 +19,6 @@ import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import com.ctre.phoenix.motorcontrol.ControlMode;
 
 import edu.wpi.first.wpilibj.Joystick;
-import edu.wpi.first.wpilibj.XboxController;
-import edu.wpi.first.wpilibj.GenericHID.Hand;
-import edu.wpi.first.wpilibj.XboxController.Axis;
-import edu.wpi.first.wpilibj.XboxController.Axis.*;
 
 
 /**
@@ -42,10 +39,10 @@ public class Robot extends TimedRobot {
   //drive motors and control objects
   private CANSparkMax moveMotorID5;
   private CANSparkMax moveMotorID7;
-  private SpeedControllerGroup rightMoveMotors;
+  private MotorControllerGroup rightMoveMotors;
   private CANSparkMax moveMotorID6;
   private CANSparkMax moveMotorID8;
-  private SpeedControllerGroup leftMoveMotors;
+  private MotorControllerGroup leftMoveMotors;
   private DifferentialDrive differentialDrive;
   
   //functional motors
@@ -72,10 +69,10 @@ public class Robot extends TimedRobot {
     //drive motors and control objects
     moveMotorID5 = new CANSparkMax(5,MotorType.kBrushless);
     moveMotorID7 = new CANSparkMax(7,MotorType.kBrushed);
-    rightMoveMotors = new SpeedControllerGroup(moveMotorID5, moveMotorID7);
+    rightMoveMotors = new MotorControllerGroup(moveMotorID5, moveMotorID7);
     moveMotorID6 = new CANSparkMax(6,MotorType.kBrushless);
     moveMotorID8 = new CANSparkMax(8,MotorType.kBrushed);
-    leftMoveMotors = new SpeedControllerGroup(moveMotorID6, moveMotorID8);
+    leftMoveMotors = new MotorControllerGroup(moveMotorID6, moveMotorID8);
 
 
     differentialDrive = new DifferentialDrive(leftMoveMotors, rightMoveMotors);
@@ -125,7 +122,7 @@ public class Robot extends TimedRobot {
       case kDefaultAuto:
       default:
         
-          victorSPX.set(ControlMode.PercentOutput, 50);
+          //victorSPX.set(ControlMode.PercentOutput, 50);
         
         
     }
@@ -142,11 +139,11 @@ public class Robot extends TimedRobot {
   differentialDrive.arcadeDrive(joystick.getX(), joystick.getY());
 
   if (joystick.getRawButton(1)){
-    victorSPX.set(ControlMode.PercentOutput, -0.5);
+    //victorSPX.set(ControlMode.PercentOutput, -0.5);
 
   }
   else{
-    victorSPX.set(ControlMode.PercentOutput, 0);
+    //victorSPX.set(ControlMode.PercentOutput, 0);
   }
 
     
