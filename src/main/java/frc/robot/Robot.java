@@ -36,6 +36,18 @@ public class Robot extends TimedRobot {
   // controls
   private Joystick joystick;
 
+  // drive modifiers mapping
+  const int driveSpeedUpBtn = 7;
+  const int driveSpeedDownBtn = 8;
+  const int driveReverseBtn = 6;
+
+  // functional button mapping
+  const int funcReverseBtn = 5;
+  const int func1Btn = 1;
+  const int func2Btn = 2;
+  const int func3Btn = 3;
+  const int func4Btn = 4;
+
   //drive motors and control objects
   private CANSparkMax moveMotorID5;
   private CANSparkMax moveMotorID7;
@@ -44,13 +56,14 @@ public class Robot extends TimedRobot {
   private CANSparkMax moveMotorID8;
   private MotorControllerGroup leftMoveMotors;
   private DifferentialDrive differentialDrive;
+  private double driveSpeed = 1;
   
   //functional motors
   private VictorSPX funcMotor1;
   private VictorSPX funcMotor2;
   private VictorSPX funcMotor3;
   private VictorSPX funcMotor4;
-  
+  private double funcModifier = 1;
   
   
   /**
@@ -73,7 +86,6 @@ public class Robot extends TimedRobot {
     moveMotorID6 = new CANSparkMax(6,MotorType.kBrushless);
     moveMotorID8 = new CANSparkMax(8,MotorType.kBrushed);
     leftMoveMotors = new MotorControllerGroup(moveMotorID6, moveMotorID8);
-
 
     differentialDrive = new DifferentialDrive(leftMoveMotors, rightMoveMotors);
     
@@ -135,16 +147,29 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
+    // direct drive controls to the drive control object
+    differentialDrive.arcadeDrive(joystick.getX() * driveSpeed, joystick.getY() * driveSpeed);
 
-  differentialDrive.arcadeDrive(joystick.getX(), joystick.getY());
+    // driving modifiers
+    if(joystick.getRawButtonPressed(driveReverseBtn)) driveSpeed *= -1;
+    if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed < 1) driveSpeed += 0.25;
+    if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed > -1) driveSpeed -= 0.25;
 
-  if (joystick.getRawButton(1)){
-    //victorSPX.set(ControlMode.PercentOutput, -0.5);
+    // functional modifiers
+    if(joystick.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1;
+    
+    if (joystick.getRawButton(func1Btn)) funcMotor1.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    else funcMotor1.set(ControlMode.PercentOutput, 0);
 
-  }
-  else{
-    //victorSPX.set(ControlMode.PercentOutput, 0);
-  }
+    if (joystick.getRawButton(func2Btn)) funcMotor2.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    else funcMotor2.set(ControlMode.PercentOutput, 0);
+
+    if (joystick.getRawButton(func3Btn)) funcMotor3.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    else funcMotor3.set(ControlMode.PercentOutput, 0);
+
+    if (joystick.getRawButton(func4Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    else funcMotor4.set(ControlMode.PercentOutput, 0);
+
 
     
   }
