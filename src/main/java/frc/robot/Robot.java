@@ -37,16 +37,16 @@ public class Robot extends TimedRobot {
   private Joystick joystick;
 
   // drive modifiers mapping
-  const int driveSpeedUpBtn = 7;
-  const int driveSpeedDownBtn = 8;
-  const int driveReverseBtn = 6;
+  final int driveSpeedUpBtn = 7;
+  final int driveSpeedDownBtn = 8;
+  final int driveReverseBtn = 6;
 
   // functional button mapping
-  const int funcReverseBtn = 5;
-  const int func1Btn = 1;
-  const int func2Btn = 2;
-  const int func3Btn = 3;
-  const int func4Btn = 4;
+  final int funcReverseBtn = 5;
+  final int func1Btn = 1;
+  final int func2Btn = 2;
+  final int func3Btn = 3;
+  final int func4Btn = 4;
 
   //drive motors and control objects
   private CANSparkMax moveMotorID5;
