@@ -87,7 +87,7 @@ public class Robot extends TimedRobot {
     moveMotorID8 = new CANSparkMax(8,MotorType.kBrushed);
     leftMoveMotors = new MotorControllerGroup(moveMotorID6, moveMotorID8);
 
-    differentialDrive = new DifferentialDrive(leftMoveMotors, rightMoveMotors);
+    differentialDrive = new DifferentialDrive(moveMotorID6, moveMotorID5);
     
     //functional motors
     funcMotor1 = new VictorSPX(1);
@@ -148,7 +148,7 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
     // direct drive controls to the drive control object
-    differentialDrive.arcadeDrive(joystick.getX() * driveSpeed, joystick.getY() * driveSpeed);
+    differentialDrive.arcadeDrive(joystick.getX() * driveSpeed * 0.5, joystick.getY() * driveSpeed * 0.65);
 
     // driving modifiers
     if(joystick.getRawButtonPressed(driveReverseBtn)) driveSpeed *= -1;
@@ -158,7 +158,7 @@ public class Robot extends TimedRobot {
     // functional modifiers
     if(joystick.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1;
     
-    if (joystick.getRawButton(func1Btn)) funcMotor1.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    if (joystick.getRawButton(func1Btn)) funcMotor1.set(ControlMode.PercentOutput, funcModifier * 0.1);
     else funcMotor1.set(ControlMode.PercentOutput, 0);
 
     if (joystick.getRawButton(func2Btn)) funcMotor2.set(ControlMode.PercentOutput, funcModifier * 0.5);
