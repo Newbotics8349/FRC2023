@@ -157,3 +157,48 @@ else
 
 **Axis Input**
 
+Here is how to get the current position of the joystick on its two axis:
+
+```lang-java
+joystickName.getx()
+joystickName.gety()
+```
+
+These two functions will get the x and y axis of the stick respectively. 
+
+## teleopPeriodic() Function
+
+The teleopPeriodic() Function is where most of the code that makes the robot move will go. This is were you will write your code that maps controller inputs to motor outputs. 
+
+One of the most important functions that will be used in every version of robot code you write is the differentialDrive.arcadeDrive() function. This function will automatically take the axis you provide in the argument of the function, and turn their inputs into drive outputs on the motors designated as part of the drive train. 
+
+**Setup**
+
+1. Make sure that the differentialDrive() library is imported.
+
+```lang-java
+import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+```
+
+2. In the Robot class, create a variable for two drive motors and a differential drive object. You need one motor for the left side of the robot and one for the right side.
+
+```lang-java
+  private CANSparkMax motorLeft;
+  private CANSparkMax motorRight;
+  private DifferentialDrive differentialDrive;
+```
+
+3. You have to follow the steps from from setting up other motors for the two motors that are going to be in the differentialDrive object. After that, you can assign them to the differentialDrive object. The first argument is the motor that is on the left, and the second argument is the motor on the right.
+
+```lang-java
+differentialDrive = new DifferentialDrive(motorLeft, motorRight);)
+```
+**Usage**
+
+Now all you have to do is write one line of code in the teleopPeriodic() function.
+
+```lang-java
+differentialDrive.arcadeDrive(joystick.getX(), joystick.getY());
+```
+
+The first argument is for the x axis of the stick that you are using, while the second argument is for the y axis of the stick that you are using.
