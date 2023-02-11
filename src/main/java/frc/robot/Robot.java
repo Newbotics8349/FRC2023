@@ -170,8 +170,6 @@ public class Robot extends TimedRobot {
     if (joystick.getRawButton(func4Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
     else funcMotor4.set(ControlMode.PercentOutput, 0);
 
-
-    
   }
 
   /** This function is called once when the robot is disabled. */
