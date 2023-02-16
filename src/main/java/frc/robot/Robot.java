@@ -174,7 +174,7 @@ public class Robot extends TimedRobot {
     if (joystick.getRawButton(func2Btn)) funcMotor2.set(ControlMode.PercentOutput, funcModifier * 0.5);
     else funcMotor2.set(ControlMode.PercentOutput, 0);
 
-    if (joystick.getRawButton(func3Btn)) funcMotor3.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    if (joystick.getRawButton(func3Btn)) funcMotor3.set(ControlMode.PercentOutput, funcModifier* joystick.getZ());
     else funcMotor3.set(ControlMode.PercentOutput, 0);
 
     if (joystick.getRawButton(func4Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
@@ -188,8 +188,10 @@ public class Robot extends TimedRobot {
       //System.out.println("angle calculated: " + String.valueOf(pitchAngle));
 
       // pitchAngle < 0 means we need to drive backwards
-      if(Math.abs(pitchAngle)>5)
+      if (Math.abs(pitchAngle)>7.5)
         differentialDrive.arcadeDrive(0, 0.35*(pitchAngle/Math.abs(pitchAngle)));
+      else if(Math.abs(pitchAngle)>5)
+        differentialDrive.arcadeDrive(0, 0.30*(pitchAngle/Math.abs(pitchAngle)));
       //System.out.println("Driving at speed: " + String.valueOf((1.0/45.0)*(pitchAngle)*driveSpeed));
     }
     else
