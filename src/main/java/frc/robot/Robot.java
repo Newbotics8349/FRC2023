@@ -8,6 +8,7 @@ import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj.BuiltInAccelerometer;
 import edu.wpi.first.wpilibj.CAN;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.motorcontrol.MotorControllerGroup;
@@ -36,17 +37,24 @@ public class Robot extends TimedRobot {
   // controls
   private Joystick joystick;
 
+  //accelerometer
+  private BuiltInAccelerometer builtInAccelerometer;
+  final int accelCalibrateBtn = 9;
+  final int autoBalanceBtn = 10;
+  private double pitchBias = 0;
+  private double gravity = -9.81;
+
   // drive modifiers mapping
-  const int driveSpeedUpBtn = 7;
-  const int driveSpeedDownBtn = 8;
-  const int driveReverseBtn = 6;
+  final int driveSpeedUpBtn = 7;
+  final int driveSpeedDownBtn = 8;
+  final int driveReverseBtn = 6;
 
   // functional button mapping
-  const int funcReverseBtn = 5;
-  const int func1Btn = 1;
-  const int func2Btn = 2;
-  const int func3Btn = 3;
-  const int func4Btn = 4;
+  final int funcReverseBtn = 5;
+  final int func1Btn = 1;
+  final int func2Btn = 2;
+  final int func3Btn = 3;
+  final int func4Btn = 4;
 
   //drive motors and control objects
   private CANSparkMax moveMotorID5;
@@ -79,15 +87,18 @@ public class Robot extends TimedRobot {
     // controls
     joystick = new Joystick(0); // Controller in port 0
 
+    //accelerometer
+    builtInAccelerometer = new BuiltInAccelerometer();
+
     //drive motors and control objects
     moveMotorID5 = new CANSparkMax(5,MotorType.kBrushless);
     moveMotorID7 = new CANSparkMax(7,MotorType.kBrushed);
     rightMoveMotors = new MotorControllerGroup(moveMotorID5, moveMotorID7);
     moveMotorID6 = new CANSparkMax(6,MotorType.kBrushless);
-    moveMotorID8 = new CANSparkMax(8,MotorType.kBrushed);
+    moveMotorID8 = new CANSparkMax(8,MotorType.kBrushless);
     leftMoveMotors = new MotorControllerGroup(moveMotorID6, moveMotorID8);
 
-    differentialDrive = new DifferentialDrive(leftMoveMotors, rightMoveMotors);
+    differentialDrive = new DifferentialDrive(moveMotorID6, moveMotorID5);
     
     //functional motors
     funcMotor1 = new VictorSPX(1);
@@ -134,7 +145,6 @@ public class Robot extends TimedRobot {
       case kDefaultAuto:
       default:
         
-          //victorSPX.set(ControlMode.PercentOutput, 50);
         
         
     }
@@ -148,9 +158,9 @@ public class Robot extends TimedRobot {
   @Override
   public void teleopPeriodic() {
     // direct drive controls to the drive control object
-    differentialDrive.arcadeDrive(joystick.getX() * driveSpeed, joystick.getY() * driveSpeed);
+    //moveMotorID8.set(1);
 
-    // driving modifiers
+    //driving modifiers
     if(joystick.getRawButtonPressed(driveReverseBtn)) driveSpeed *= -1;
     if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed < 1) driveSpeed += 0.25;
     if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed > -1) driveSpeed -= 0.25;
@@ -170,6 +180,30 @@ public class Robot extends TimedRobot {
     if (joystick.getRawButton(func4Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
     else funcMotor4.set(ControlMode.PercentOutput, 0);
 
+    //accelerometer auto-balance
+    if (joystick.getRawButton(autoBalanceBtn))
+    {
+      // Y is pitch
+      double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
+      //System.out.println("angle calculated: " + String.valueOf(pitchAngle));
+
+      // pitchAngle < 0 means we need to drive backwards
+      if(Math.abs(pitchAngle)>5)
+        differentialDrive.arcadeDrive(0, 0.35*(pitchAngle/Math.abs(pitchAngle)));
+      //System.out.println("Driving at speed: " + String.valueOf((1.0/45.0)*(pitchAngle)*driveSpeed));
+    }
+    else
+    {
+      differentialDrive.arcadeDrive(joystick.getX() * driveSpeed, joystick.getY() * driveSpeed);
+    }
+
+    //accelerometer calibration
+    if (joystick.getRawButton(accelCalibrateBtn))
+    {
+      // find Y value when on flat ground to determine accelerometer bias
+      pitchBias = builtInAccelerometer.getY();
+      gravity = builtInAccelerometer.getZ();
+    }
 
     
   }
