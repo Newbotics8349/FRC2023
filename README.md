@@ -202,3 +202,23 @@ differentialDrive.arcadeDrive(joystick.getX(), joystick.getY());
 ```
 
 The first argument is for the x axis of the stick that you are using, while the second argument is for the y axis of the stick that you are using.
+
+## RobRIO Built-In Accelerometer
+
+Import the built-in accelerometer library:
+
+```lang-java
+edu.wpi.first.wpilibj.BuiltInAccelerometer
+```
+
+Create a variable for the accelerometer in the robot class:
+
+```lang-java
+private BuiltInAccelerometer accelerometer;
+```
+
+Create the accelerometer object in robot-init:
+
+```lang-java
+private BuiltInAccelerometer accelerometer;
+```
