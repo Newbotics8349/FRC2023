@@ -208,17 +208,44 @@ The first argument is for the x axis of the stick that you are using, while the 
 Import the built-in accelerometer library:
 
 ```lang-java
-edu.wpi.first.wpilibj.BuiltInAccelerometer
+import edu.wpi.first.wpilibj.BuiltInAccelerometer
 ```
 
 Create a variable for the accelerometer in the robot class:
 
 ```lang-java
-private BuiltInAccelerometer accelerometer;
+private BuiltInAccelerometer builtInAccelerometer;
 ```
 
 Create the accelerometer object in robot-init:
 
 ```lang-java
-private BuiltInAccelerometer accelerometer;
+builtInAcceleromter - new BuiltInAccelerometer();
 ```
+
+## Slew Rate Limiter
+This allows for the drive train to gradually accelerate rather than jerk to speed.
+
+Import Slew Rate Limiter Class:
+
+```lang-java
+import edu.wpi.first.math.filter.SlewRateLimiter;
+```
+
+Creating a Slew Rate Limiter:
+
+```lang-java
+SlewRateLimiter filter = new SlewRateLimiter(0.25);
+ ```
+
+ The argument defines the rate of change per one second.
+
+ Now you can just put the function 
+ 
+ ```lang-java
+ filter.calculate();
+ ```
+
+ Into the code, around whatever is being used to determine a motor output.
+
+ **You need one slewratelimiter for every input (usually each axis)**

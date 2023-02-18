@@ -21,6 +21,7 @@ import com.ctre.phoenix.motorcontrol.ControlMode;
 
 import edu.wpi.first.wpilibj.Joystick;
 
+import edu.wpi.first.math.filter.SlewRateLimiter;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -73,6 +74,8 @@ public class Robot extends TimedRobot {
   private VictorSPX funcMotor4;
   private double funcModifier = 1;
   
+  SlewRateLimiter filter0 = new SlewRateLimiter(0.5);
+  SlewRateLimiter filter1 = new SlewRateLimiter(0.5);
   
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -196,7 +199,7 @@ public class Robot extends TimedRobot {
     }
     else
     {
-      differentialDrive.arcadeDrive(joystick.getX() * driveSpeed, joystick.getY() * driveSpeed);
+      differentialDrive.arcadeDrive(filter0.calculate(joystick.getX() * driveSpeed), filter1.calculate(joystick.getY() * driveSpeed));
     }
 
     //accelerometer calibration
