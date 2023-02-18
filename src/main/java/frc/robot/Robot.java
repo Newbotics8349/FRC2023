@@ -168,7 +168,7 @@ public class Robot extends TimedRobot {
     // functional modifiers
     if(joystick.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1;
     
-    if (joystick.getRawButton(func1Btn)) funcMotor1.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    if (joystick.getRawButton(func1Btn)) funcMotor1.set(ControlMode.PercentOutput, funcModifier * 0.1);
     else funcMotor1.set(ControlMode.PercentOutput, 0);
 
     if (joystick.getRawButton(func2Btn)) funcMotor2.set(ControlMode.PercentOutput, funcModifier * 0.5);
