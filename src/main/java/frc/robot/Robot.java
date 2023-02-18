@@ -74,8 +74,9 @@ public class Robot extends TimedRobot {
   private VictorSPX funcMotor4;
   private double funcModifier = 1;
   
-  SlewRateLimiter filter0 = new SlewRateLimiter(0.5);
+  SlewRateLimiter filter0 = new SlewRateLimiter(1);
   SlewRateLimiter filter1 = new SlewRateLimiter(0.5);
+  SlewRateLimiter filter2 = new SlewRateLimiter(1);
   
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -192,9 +193,9 @@ public class Robot extends TimedRobot {
 
       // pitchAngle < 0 means we need to drive backwards
       if (Math.abs(pitchAngle)>7.5)
-        differentialDrive.arcadeDrive(0, 0.35*(pitchAngle/Math.abs(pitchAngle)));
+        differentialDrive.arcadeDrive(0, filter2.calculate(0.35*(pitchAngle/Math.abs(pitchAngle))));
       else if(Math.abs(pitchAngle)>5)
-        differentialDrive.arcadeDrive(0, 0.30*(pitchAngle/Math.abs(pitchAngle)));
+        differentialDrive.arcadeDrive(0, filter2.calculate(0.30*(pitchAngle/Math.abs(pitchAngle))));
       //System.out.println("Driving at speed: " + String.valueOf((1.0/45.0)*(pitchAngle)*driveSpeed));
     }
     else
