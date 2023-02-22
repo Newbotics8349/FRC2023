@@ -71,6 +71,7 @@ public class Robot extends TimedRobot {
   private VictorSPX funcMotor2;
   private VictorSPX funcMotor3;
   private VictorSPX funcMotor4;
+  private CANSparkMax funcMotor9;
   private double funcModifier = 1;
   
   
@@ -101,6 +102,7 @@ public class Robot extends TimedRobot {
     differentialDrive = new DifferentialDrive(moveMotorID6, moveMotorID5);
     
     //functional motors
+    funcMotor9 = new CANSparkMax(9,MotorType.kBrushless);
     funcMotor1 = new VictorSPX(1);
     funcMotor2 = new VictorSPX(2);
     funcMotor3 = new VictorSPX(3);
@@ -168,18 +170,26 @@ public class Robot extends TimedRobot {
     // functional modifiers
     if(joystick.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1;
     
-    if (joystick.getRawButton(func1Btn)) funcMotor1.set(ControlMode.PercentOutput, funcModifier * 0.1);
-    else funcMotor1.set(ControlMode.PercentOutput, 0);
+    if (joystick.getRawButton(func1Btn)) 
+    {
+      funcMotor1.set(ControlMode.PercentOutput, funcModifier * joystick.getZ());
+      funcMotor2.set(ControlMode.PercentOutput, funcModifier * joystick.getZ());
+    }
+    else 
+    {
+      funcMotor1.set(ControlMode.PercentOutput, 0);
+      funcMotor2.set(ControlMode.PercentOutput, 0);
+    }
 
-    if (joystick.getRawButton(func2Btn)) funcMotor2.set(ControlMode.PercentOutput, funcModifier * 0.5);
-    else funcMotor2.set(ControlMode.PercentOutput, 0);
-
+    if (joystick.getRawButton(func2Btn)) funcMotor9.set(funcModifier * joystick.getZ());
+    else funcMotor9.set(0);
+/*
     if (joystick.getRawButton(func3Btn)) funcMotor3.set(ControlMode.PercentOutput, funcModifier* joystick.getZ());
     else funcMotor3.set(ControlMode.PercentOutput, 0);
 
     if (joystick.getRawButton(func4Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
     else funcMotor4.set(ControlMode.PercentOutput, 0);
-
+*/
     //accelerometer auto-balance
     if (joystick.getRawButton(autoBalanceBtn))
     {
