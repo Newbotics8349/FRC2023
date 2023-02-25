@@ -40,22 +40,24 @@ public class Robot extends TimedRobot {
 
   //accelerometer
   private BuiltInAccelerometer builtInAccelerometer;
-  final int accelCalibrateBtn = 9;
-  final int autoBalanceBtn = 10;
+  final int accelCalibrateBtn = 2;
+  final int autoBalanceBtn = 3;
   private double pitchBias = 0;
   private double gravity = -9.81;
 
   // drive modifiers mapping
-  final int driveSpeedUpBtn = 7;
-  final int driveSpeedDownBtn = 8;
-  final int driveReverseBtn = 6;
+  final int driveSpeedUpBtn = 5;
+  final int driveSpeedDownBtn = 6;
+  final int driveReverseBtn = 1;
 
   // functional button mapping
-  final int funcReverseBtn = 5;
-  final int func1Btn = 1;
-  final int func2Btn = 2;
-  final int func3Btn = 3;
-  final int func4Btn = 4;
+  final int funcReverseBtn = 1;
+  final int openGripper = 5;
+  final int closeGripper = 6;
+  //final int func1Btn = 1;
+  //final int func2Btn = 2;
+  //final int func3Btn = 3;
+  //final int func4Btn = 4;
 
   //drive motors and control objects
   private CANSparkMax moveMotorID5;
@@ -149,7 +151,13 @@ public class Robot extends TimedRobot {
 
   /** This function is called once when teleop is enabled. */
   @Override
-  public void teleopInit() {}
+  public void teleopInit() {
+    // calibrate accelerometer
+    // find Y value when on flat ground to determine accelerometer bias
+    pitchBias = builtInAccelerometer.getY();
+    gravity = builtInAccelerometer.getZ();
+
+  }
 
   /** This function is called periodically during operator control. */
   @Override
@@ -163,27 +171,22 @@ public class Robot extends TimedRobot {
     if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed > -1) driveSpeed -= 0.25;
 
     // functional modifiers
-    if(joystick.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1;
+    if(joystick2.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1;
     
-    //if (joystick2.getRawButton(func1Btn)) 
-    //{
-      if (Math.abs(joystick2.getY()) <= 0.1)
-      {
-        funcMotor1.set(ControlMode.PercentOutput, 0);
-        funcMotor2.set(ControlMode.PercentOutput, 0);
-      }
-      else
-      {
-        funcMotor1.set(ControlMode.PercentOutput, funcModifier * joystick2.getY());
-        funcMotor2.set(ControlMode.PercentOutput, funcModifier * joystick2.getY());
-      }
-    //}
-    //else 
-    //{
-    //  funcMotor1.set(ControlMode.PercentOutput, 0);
-    //  funcMotor2.set(ControlMode.PercentOutput, 0);
-    //}
-    if (Math.abs(joystick2.getZ()) <= 0.1)
+    // Arm pitch
+    if (Math.abs(joystick2.getY()) <= 0.1)
+    {
+      funcMotor1.set(ControlMode.PercentOutput, 0);
+      funcMotor2.set(ControlMode.PercentOutput, 0);
+    }
+    else
+    {
+      funcMotor1.set(ControlMode.PercentOutput, funcModifier * joystick2.getY());
+      funcMotor2.set(ControlMode.PercentOutput, funcModifier * joystick2.getY());
+    }
+
+    // Arm extend
+    if (Math.abs(joystick2.getThrottle()) <= 0.1)
     {
       funcMotor9.set(0);
     }
@@ -192,11 +195,9 @@ public class Robot extends TimedRobot {
       funcMotor9.set(funcModifier * joystick2.getZ() * 0.25);
     }
     
-/*
-    if (joystick.getRawButton(func3Btn)) funcMotor3.set(ControlMode.PercentOutput, funcModifier* joystick.getZ());
-    else funcMotor3.set(ControlMode.PercentOutput, 0);
-*/
-    if (joystick2.getRawButton(func1Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    // gripper
+    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * -0.5);
     else funcMotor4.set(ControlMode.PercentOutput, 0);
 
     //accelerometer auto-balance
