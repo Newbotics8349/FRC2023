@@ -150,15 +150,20 @@ public class Robot extends TimedRobot {
         break;
       case kDefaultAuto:
       default:
-        
-        
-        
     }
   }
 
   /** This function is called once when teleop is enabled. */
   @Override
-  public void teleopInit() {}
+  public void teleopInit() 
+  {
+    //STARUP ACCELEROMETER CALIBRATION
+    //find Y value when on flat ground to determine accelerometer bias
+    pitchBias = builtInAccelerometer.getY();
+    gravity = builtInAccelerometer.getZ();
+    System.out.println(pitchBias);
+    System.out.println(gravity);
+  }
 
   /** This function is called periodically during operator control. */
   @Override
@@ -185,34 +190,20 @@ public class Robot extends TimedRobot {
     if (joystick.getRawButton(func4Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5); //ARM EXTEND SUBSYSTEM (4)
     else funcMotor4.set(ControlMode.PercentOutput, 0);
 
-    //accelerometer auto-balance
+    //AUTOBALANCE SUBSYSTEM
     if (joystick.getRawButton(autoBalanceBtn))
     {
-      // Y is pitch
-      double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
-      //System.out.println("angle calculated: " + String.valueOf(pitchAngle));
+      double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90; //DETERMINES Y-AXIS PITCH
 
-      // pitchAngle < 0 means we need to drive backwards
       if (Math.abs(pitchAngle)>7.5)
-        differentialDrive.arcadeDrive(0, filter2.calculate(0.35*(pitchAngle/Math.abs(pitchAngle))));
+        differentialDrive.arcadeDrive(0, filter2.calculate(0.40*(pitchAngle/Math.abs(pitchAngle)))); //VELOCITY IF GREATER THAN PITCH OF 7.5
       else if(Math.abs(pitchAngle)>5)
-        differentialDrive.arcadeDrive(0, filter2.calculate(0.30*(pitchAngle/Math.abs(pitchAngle))));
-      //System.out.println("Driving at speed: " + String.valueOf((1.0/45.0)*(pitchAngle)*driveSpeed));
+        differentialDrive.arcadeDrive(0, filter2.calculate(0.30*(pitchAngle/Math.abs(pitchAngle)))); //VELOCITY IF GREATER THAN PITCH OF 5
     }
     else
     {
       differentialDrive.arcadeDrive(filter0.calculate(joystick.getX() * driveSpeed), filter1.calculate(joystick.getY() * driveSpeed));
     }
-
-    //accelerometer calibration
-    if (joystick.getRawButton(accelCalibrateBtn))
-    {
-      // find Y value when on flat ground to determine accelerometer bias
-      pitchBias = builtInAccelerometer.getY();
-      gravity = builtInAccelerometer.getZ();
-    }
-
-    
   }
 
   /** This function is called once when the robot is disabled. */
