@@ -21,6 +21,8 @@ import com.ctre.phoenix.motorcontrol.ControlMode;
 
 import edu.wpi.first.wpilibj.Joystick;
 
+import edu.wpi.first.wpilibj.DigitalInput;
+
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -77,6 +79,8 @@ public class Robot extends TimedRobot {
   private CANSparkMax funcMotor9;
   private double funcModifier = 1;
   
+  DigitalInput armInput = new DigitalInput(0);
+  //Initialize a trigger on PWM port 0
   
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -143,16 +147,15 @@ public class Robot extends TimedRobot {
 
   /** This function is called periodically during autonomous. */
   @Override
-  public void autonomousPeriodic() {
-    
-      moveMotorID6.set(0.5);       
+  public void autonomousPeriodic() 
+  { 
         
   }
 
   /** This function is called once when teleop is enabled. */
   @Override
   public void teleopInit() {
-    // calibrate accelerometer
+    // calibrate accelerometer`
     // find Y value when on flat ground to determine accelerometer bias
     pitchBias = builtInAccelerometer.getY();
     gravity = builtInAccelerometer.getZ();
@@ -181,23 +184,26 @@ public class Robot extends TimedRobot {
     }
     else
     {
-      funcMotor1.set(ControlMode.PercentOutput, funcModifier * joystick2.getY());
-      funcMotor2.set(ControlMode.PercentOutput, funcModifier * joystick2.getY());
+      funcMotor1.set(ControlMode.PercentOutput, joystick2.getY());
+      funcMotor2.set(ControlMode.PercentOutput, joystick2.getY());
     }
 
     // Arm extend
+  
     if (Math.abs(joystick2.getThrottle()) <= 0.1)
     {
       funcMotor9.set(0);
     }
     else
     {
-      funcMotor9.set(funcModifier * joystick2.getZ() * 0.25);
+      funcMotor9.set(funcModifier * joystick2.getThrottle() * 0.5);
     }
     
+    
+    
     // gripper
-    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
-    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * -0.5);
+    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 0.2);
+    else if (joystick2.getRawButton(closeGripper) && !armInput.get()) funcMotor4.set(ControlMode.PercentOutput, -0.2);
     else funcMotor4.set(ControlMode.PercentOutput, 0);
 
     //accelerometer auto-balance
