@@ -4,7 +4,7 @@
 
 package frc.robot;
 
-import edu.wpi.first.wpilibj.TimedRobot;
+import edu.wpi.first.wpilibj.TimedRobot;                        
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -23,6 +23,7 @@ import edu.wpi.first.wpilibj.Joystick;
 
 import edu.wpi.first.wpilibj.DigitalInput;
 
+import edu.wpi.first.math.filter.SlewRateLimiter; 
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -78,6 +79,11 @@ public class Robot extends TimedRobot {
   private VictorSPX funcMotor4;
   private CANSparkMax funcMotor9;
   private double funcModifier = 1;
+
+  //acceleration limiters
+  private SlewRateLimiter limiter0;
+  private SlewRateLimiter limiter1;
+  private SlewRateLimiter limiter2;
   
   DigitalInput armInput = new DigitalInput(0);
   //Initialize a trigger on PWM port 0
@@ -115,6 +121,10 @@ public class Robot extends TimedRobot {
     funcMotor2 = new VictorSPX(2);
     funcMotor3 = new VictorSPX(3);
     funcMotor4 = new VictorSPX(4);
+
+    limiter0 = new SlewRateLimiter(2); //x-axis drive
+    limiter1 = new SlewRateLimiter(1.5); //y-axis drive
+    limiter2 = new SlewRateLimiter(1.5); //y-axis drive (auto-balance)
 
   }
 
@@ -168,6 +178,25 @@ public class Robot extends TimedRobot {
     // direct drive controls to the drive control object
     //moveMotorID8.set(1);
 
+    //accelerometer auto-balance also drive
+    if (joystick.getRawButton(autoBalanceBtn))
+    {
+      // Y is pitch
+      double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
+      //System.out.println("angle calculated: " + String.valueOf(pitchAngle));
+
+      // pitchAngle < 0 means we need to drive backwards
+      if (Math.abs(pitchAngle)>7.5)
+        differentialDrive.arcadeDrive(0, limiter2.calculate( 0.40*(pitchAngle/Math.abs(pitchAngle))));
+      else if(Math.abs(pitchAngle)>5)
+        differentialDrive.arcadeDrive(0, limiter2.calculate(0.35*(pitchAngle/Math.abs(pitchAngle))));
+      //System.out.println("Driving at speed: " + String.valueOf((1.0/45.0)*(pitchAngle)*driveSpeed));
+    }
+    else
+    {
+      differentialDrive.arcadeDrive(limiter0.calculate(joystick.getX() * driveSpeed * 0.5), limiter1.calculate(joystick.getY() * driveSpeed));
+    }
+
     //driving modifiers
     if(joystick.getRawButtonPressed(driveReverseBtn)) driveSpeed *= -1;
     if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed < 1) driveSpeed += 0.25;
@@ -175,6 +204,18 @@ public class Robot extends TimedRobot {
 
     // functional modifiers
     if(joystick2.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1;
+    if(joystick2.getRawButtonPressed(7)) 
+    {
+      funcMotor9.set(0.1);
+    }
+    else if (joystick2.getRawButton(8))
+    {
+      funcMotor9.set(-0.1);
+    }
+    else
+    {
+      funcMotor9.set(0);
+    }
     
     // Arm pitch
     if (Math.abs(joystick2.getY()) <= 0.1)
@@ -184,8 +225,8 @@ public class Robot extends TimedRobot {
     }
     else
     {
-      funcMotor1.set(ControlMode.PercentOutput, joystick2.getY());
-      funcMotor2.set(ControlMode.PercentOutput, joystick2.getY());
+      funcMotor1.set(ControlMode.PercentOutput, -1*joystick2.getY());
+      funcMotor2.set(ControlMode.PercentOutput, -1*joystick2.getY());
     }
 
     // Arm extend
@@ -196,34 +237,13 @@ public class Robot extends TimedRobot {
     }
     else
     {
-      funcMotor9.set(funcModifier * joystick2.getThrottle() * 0.5);
+      funcMotor9.set(funcModifier * joystick2.getThrottle() * 0.35);
     }
-    
-    
-    
+
     // gripper
     if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 0.2);
-    else if (joystick2.getRawButton(closeGripper) && !armInput.get()) funcMotor4.set(ControlMode.PercentOutput, -0.2);
+    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, -0.2);
     else funcMotor4.set(ControlMode.PercentOutput, 0);
-
-    //accelerometer auto-balance
-    if (joystick.getRawButton(autoBalanceBtn))
-    {
-      // Y is pitch
-      double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
-      //System.out.println("angle calculated: " + String.valueOf(pitchAngle));
-
-      // pitchAngle < 0 means we need to drive backwards
-      if (Math.abs(pitchAngle)>7.5)
-        differentialDrive.arcadeDrive(0, 0.35*(pitchAngle/Math.abs(pitchAngle)));
-      else if(Math.abs(pitchAngle)>5)
-        differentialDrive.arcadeDrive(0, 0.30*(pitchAngle/Math.abs(pitchAngle)));
-      //System.out.println("Driving at speed: " + String.valueOf((1.0/45.0)*(pitchAngle)*driveSpeed));
-    }
-    else
-    {
-      differentialDrive.arcadeDrive(joystick.getX() * driveSpeed, joystick.getY() * driveSpeed);
-    }
 
     //accelerometer calibration
     if (joystick.getRawButton(accelCalibrateBtn))
@@ -233,7 +253,6 @@ public class Robot extends TimedRobot {
       gravity = builtInAccelerometer.getZ();
     }
 
-    
   }
 
   /** This function is called once when the robot is disabled. */
