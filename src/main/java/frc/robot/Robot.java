@@ -4,24 +4,24 @@
 
 package frc.robot;
 
+//DEFAULT IMPORTS
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj.BuiltInAccelerometer;
-import edu.wpi.first.wpilibj.CAN;
+//WPILIB BUILT IN CLASS IMPORTS
+import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
+import edu.wpi.first.wpilibj.CAN;
 import edu.wpi.first.wpilibj.motorcontrol.MotorControllerGroup;
-
-import com.ctre.phoenix.motorcontrol.VictorSPXControlMode;
-import com.ctre.phoenix.motorcontrol.can.VictorSPX;
+import edu.wpi.first.wpilibj.BuiltInAccelerometer;
+import edu.wpi.first.math.filter.SlewRateLimiter;
+//MOTOR CONTROLLER IMPORTS
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
+import com.ctre.phoenix.motorcontrol.VictorSPXControlMode;
+import com.ctre.phoenix.motorcontrol.can.VictorSPX;
 import com.ctre.phoenix.motorcontrol.ControlMode;
-
-import edu.wpi.first.wpilibj.Joystick;
-
-import edu.wpi.first.math.filter.SlewRateLimiter;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -35,48 +35,49 @@ public class Robot extends TimedRobot {
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
-  // controls
+  //JOYSTICK
   private Joystick joystick;
 
-  //accelerometer
+  //ACCELEROMETER
   private BuiltInAccelerometer builtInAccelerometer;
   final int accelCalibrateBtn = 9;
   final int autoBalanceBtn = 10;
   private double pitchBias = 0;
   private double gravity = -9.81;
 
-  // drive modifiers mapping
+  //MODIFIER BUTTON MAPPING
   final int driveSpeedUpBtn = 7;
   final int driveSpeedDownBtn = 8;
   final int driveReverseBtn = 6;
 
-  // functional button mapping
+  //SUBSYSTEM MOTOR BUTTON MAPPING
   final int funcReverseBtn = 5;
   final int func1Btn = 1;
   final int func2Btn = 2;
   final int func3Btn = 3;
   final int func4Btn = 4;
 
-  //drive motors and control objects
-  private CANSparkMax moveMotorID5;
-  private CANSparkMax moveMotorID7;
-  private MotorControllerGroup rightMoveMotors;
-  private CANSparkMax moveMotorID6;
-  private CANSparkMax moveMotorID8;
-  private MotorControllerGroup leftMoveMotors;
+  //DRIVE MOTORS AND MOTOR CONTROL GROUPS
+  private CANSparkMax moveMotorID5; //RIGHT NEO
+  private CANSparkMax moveMotorID7; //RIGHT OTHER MOTOR
+  //private MotorControllerGroup rightMoveMotors;
+  private CANSparkMax moveMotorID6; //LEFT NEO
+  private CANSparkMax moveMotorID8; //LEFT OTHER MOTOR
+  //private MotorControllerGroup leftMoveMotors;
   private DifferentialDrive differentialDrive;
   private double driveSpeed = 1;
   
-  //functional motors
+  //SUBSYTEM MOTORS
   private VictorSPX funcMotor1;
   private VictorSPX funcMotor2;
   private VictorSPX funcMotor3;
   private VictorSPX funcMotor4;
   private double funcModifier = 1;
   
-  SlewRateLimiter filter0 = new SlewRateLimiter(1);
-  SlewRateLimiter filter1 = new SlewRateLimiter(0.5);
-  SlewRateLimiter filter2 = new SlewRateLimiter(1);
+  //SLEW RATE LIMITERS
+  SlewRateLimiter filter0 = new SlewRateLimiter(1); //X-DRIVE LIMITER
+  SlewRateLimiter filter1 = new SlewRateLimiter(0.5); //Y-DRIVE LIMITER
+  SlewRateLimiter filter2 = new SlewRateLimiter(1); //Y-DRIVE LIMITER (FOR AUTOBALANCE SUBSYSTEM)
   
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -88,23 +89,24 @@ public class Robot extends TimedRobot {
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
 
-    // controls
+    //JOYSTICK
     joystick = new Joystick(0); // Controller in port 0
 
-    //accelerometer
+    //ACCELEROMETER
     builtInAccelerometer = new BuiltInAccelerometer();
 
-    //drive motors and control objects
+    ////DRIVE MOTORS AND MOTOR CONTROL GROUPS
     moveMotorID5 = new CANSparkMax(5,MotorType.kBrushless);
     moveMotorID7 = new CANSparkMax(7,MotorType.kBrushed);
-    rightMoveMotors = new MotorControllerGroup(moveMotorID5, moveMotorID7);
+    //rightMoveMotors = new MotorControllerGroup(moveMotorID5, moveMotorID7);
     moveMotorID6 = new CANSparkMax(6,MotorType.kBrushless);
     moveMotorID8 = new CANSparkMax(8,MotorType.kBrushless);
-    leftMoveMotors = new MotorControllerGroup(moveMotorID6, moveMotorID8);
+    //leftMoveMotors = new MotorControllerGroup(moveMotorID6, moveMotorID8);
 
+    //DIFFERENTIAL DRIVE OBJECT
     differentialDrive = new DifferentialDrive(moveMotorID6, moveMotorID5);
     
-    //functional motors
+    //SUBSYSTEM MOTORS
     funcMotor1 = new VictorSPX(1);
     funcMotor2 = new VictorSPX(2);
     funcMotor3 = new VictorSPX(3);
@@ -161,27 +163,26 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
-    // direct drive controls to the drive control object
-    //moveMotorID8.set(1);
+  
+    //DRIVE VELOCITY MODIFIERS
+    if(joystick.getRawButtonPressed(driveReverseBtn)) driveSpeed *= -1; //REVERSE DRIVE MOTORS
+    if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed < 1) driveSpeed += 0.25; //INCREASE VELOCITY WHEN POSITIVE
+    if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed > -1) driveSpeed -= 0.25; //INCREASE (DECREASE) VELOCITY WHEN NEGATIVE
 
-    //driving modifiers
-    if(joystick.getRawButtonPressed(driveReverseBtn)) driveSpeed *= -1;
-    if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed < 1) driveSpeed += 0.25;
-    if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed > -1) driveSpeed -= 0.25;
-
-    // functional modifiers
-    if(joystick.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1;
+    //SUBSYSTEM MODIFIERS
+    if(joystick.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1; //REVERSE SUBSYSTEM MOTORS
     
-    if (joystick.getRawButton(func1Btn)) funcMotor1.set(ControlMode.PercentOutput, funcModifier * 0.1);
+    //SUBSYSTEM MOTORS
+    if (joystick.getRawButton(func1Btn)) funcMotor1.set(ControlMode.PercentOutput, funcModifier * 0.1); //ARM RAISE SUBSYSTEM (1)
     else funcMotor1.set(ControlMode.PercentOutput, 0);
 
-    if (joystick.getRawButton(func2Btn)) funcMotor2.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    if (joystick.getRawButton(func2Btn)) funcMotor2.set(ControlMode.PercentOutput, funcModifier * 0.5); //ARM RAISE SUBSYSTEM (2)
     else funcMotor2.set(ControlMode.PercentOutput, 0);
 
-    if (joystick.getRawButton(func3Btn)) funcMotor3.set(ControlMode.PercentOutput, funcModifier* joystick.getZ());
+    if (joystick.getRawButton(func3Btn)) funcMotor3.set(ControlMode.PercentOutput, funcModifier* joystick.getZ()); //SUBSYSTEM 3 MOTOR
     else funcMotor3.set(ControlMode.PercentOutput, 0);
 
-    if (joystick.getRawButton(func4Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    if (joystick.getRawButton(func4Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5); //ARM EXTEND SUBSYSTEM (4)
     else funcMotor4.set(ControlMode.PercentOutput, 0);
 
     //accelerometer auto-balance
