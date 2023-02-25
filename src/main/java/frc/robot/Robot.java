@@ -36,6 +36,7 @@ public class Robot extends TimedRobot {
 
   // controls
   private Joystick joystick;
+  private Joystick joystick2;
 
   //accelerometer
   private BuiltInAccelerometer builtInAccelerometer;
@@ -87,6 +88,7 @@ public class Robot extends TimedRobot {
 
     // controls
     joystick = new Joystick(0); // Controller in port 0
+    joystick2 = new Joystick(1);
 
     //accelerometer
     builtInAccelerometer = new BuiltInAccelerometer();
@@ -132,7 +134,7 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    m_autoSelected = m_chooser.getSelected();
+    //m_autoSelected = m_chooser.getSelected();
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     System.out.println("Auto selected: " + m_autoSelected);
   }
@@ -140,16 +142,9 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() {
-    switch (m_autoSelected) {
-      case kCustomAuto:
-        // Put custom auto code here
-        break;
-      case kDefaultAuto:
-      default:
+    
+      moveMotorID6.set(0.5);       
         
-        
-        
-    }
   }
 
   /** This function is called once when teleop is enabled. */
@@ -170,26 +165,40 @@ public class Robot extends TimedRobot {
     // functional modifiers
     if(joystick.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1;
     
-    if (joystick.getRawButton(func1Btn)) 
+    //if (joystick2.getRawButton(func1Btn)) 
+    //{
+      if (Math.abs(joystick2.getY()) <= 0.1)
+      {
+        funcMotor1.set(ControlMode.PercentOutput, 0);
+        funcMotor2.set(ControlMode.PercentOutput, 0);
+      }
+      else
+      {
+        funcMotor1.set(ControlMode.PercentOutput, funcModifier * joystick2.getY());
+        funcMotor2.set(ControlMode.PercentOutput, funcModifier * joystick2.getY());
+      }
+    //}
+    //else 
+    //{
+    //  funcMotor1.set(ControlMode.PercentOutput, 0);
+    //  funcMotor2.set(ControlMode.PercentOutput, 0);
+    //}
+    if (Math.abs(joystick2.getZ()) <= 0.1)
     {
-      funcMotor1.set(ControlMode.PercentOutput, funcModifier * joystick.getZ());
-      funcMotor2.set(ControlMode.PercentOutput, funcModifier * joystick.getZ());
+      funcMotor9.set(0);
     }
-    else 
+    else
     {
-      funcMotor1.set(ControlMode.PercentOutput, 0);
-      funcMotor2.set(ControlMode.PercentOutput, 0);
+      funcMotor9.set(funcModifier * joystick2.getZ() * 0.25);
     }
-
-    if (joystick.getRawButton(func2Btn)) funcMotor9.set(funcModifier * joystick.getZ());
-    else funcMotor9.set(0);
+    
 /*
     if (joystick.getRawButton(func3Btn)) funcMotor3.set(ControlMode.PercentOutput, funcModifier* joystick.getZ());
     else funcMotor3.set(ControlMode.PercentOutput, 0);
-
-    if (joystick.getRawButton(func4Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
-    else funcMotor4.set(ControlMode.PercentOutput, 0);
 */
+    if (joystick2.getRawButton(func1Btn)) funcMotor4.set(ControlMode.PercentOutput, funcModifier * 0.5);
+    else funcMotor4.set(ControlMode.PercentOutput, 0);
+
     //accelerometer auto-balance
     if (joystick.getRawButton(autoBalanceBtn))
     {
