@@ -22,6 +22,7 @@ import com.ctre.phoenix.motorcontrol.ControlMode;
 import edu.wpi.first.wpilibj.Joystick;
 
 import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.AnalogInput;
 
 import edu.wpi.first.math.filter.SlewRateLimiter; 
 
@@ -84,7 +85,23 @@ public class Robot extends TimedRobot {
   private SlewRateLimiter limiter0;
   private SlewRateLimiter limiter1;
   private SlewRateLimiter limiter2;
+  private SlewRateLimiter limiter3;
+
+  boolean autoStep1 = false;
+
+  AnalogInput armAnglePot;
+  final int verticalReading = 3530;
+  final double potValueToDegrees = 180.0/3270.0;
+
+  final double maxVerticalHeightInches = 78;
+  final double maxHorizontalExtensionInches = 48;
   
+  final double pivotHeightInches = 20;
+  final double pivotDepthFromFront = 15;
+
+  final double baseArmLength = 49.5;
+  final double f9EncoderToInches = -12.5 / 6.3; 
+
   DigitalInput armInput = new DigitalInput(0);
   //Initialize a trigger on PWM port 0
   
@@ -122,9 +139,14 @@ public class Robot extends TimedRobot {
     funcMotor3 = new VictorSPX(3);
     funcMotor4 = new VictorSPX(4);
 
+    //slew rate limiters
     limiter0 = new SlewRateLimiter(2); //x-axis drive
     limiter1 = new SlewRateLimiter(1.5); //y-axis drive
     limiter2 = new SlewRateLimiter(1.5); //y-axis drive (auto-balance)
+    limiter3 = new SlewRateLimiter(2);
+
+    
+    armAnglePot = new AnalogInput(3);
 
   }
 
@@ -153,12 +175,32 @@ public class Robot extends TimedRobot {
     //m_autoSelected = m_chooser.getSelected();
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     System.out.println("Auto selected: " + m_autoSelected);
+
+    pitchBias = builtInAccelerometer.getY();
+    gravity = builtInAccelerometer.getZ();
+
   }
 
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() 
   { 
+    double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
+    if(autoStep1 == false)
+    {
+      differentialDrive.arcadeDrive(0, 0.1);
+      if(Math.abs(pitchAngle)>5)
+      {
+        autoStep1 = true;
+      }
+    }
+    else if(autoStep1 == true)
+    {
+      if (Math.abs(pitchAngle)>7.5)
+        differentialDrive.arcadeDrive(0, limiter2.calculate( 0.40*(pitchAngle/Math.abs(pitchAngle))));
+      else if(Math.abs(pitchAngle)>5)
+        differentialDrive.arcadeDrive(0, limiter2.calculate(0.35*(pitchAngle/Math.abs(pitchAngle))));
+    }
         
   }
 
@@ -170,6 +212,9 @@ public class Robot extends TimedRobot {
     pitchBias = builtInAccelerometer.getY();
     gravity = builtInAccelerometer.getZ();
 
+    // reset encoder for extending arm
+    funcMotor9.getEncoder().setPosition(0);
+
   }
 
   /** This function is called periodically during operator control. */
@@ -177,7 +222,19 @@ public class Robot extends TimedRobot {
   public void teleopPeriodic() {
     // direct drive controls to the drive control object
     //moveMotorID8.set(1);
+    // angle between vertical position and arm
+    double armAngle = Math.abs(verticalReading-armAnglePot.getValue()) * potValueToDegrees;
 
+    double maxArmLengthFromHorizontalBound = Math.abs((pivotDepthFromFront + maxHorizontalExtensionInches) / (Math.sin(armAngle*Math.PI/180.0)));
+    double maxArmLengthFromVerticalBound = Math.abs((maxVerticalHeightInches - pivotHeightInches) / (Math.cos(armAngle*Math.PI/180.0)));
+    double maxArmLength = Math.min(maxArmLengthFromHorizontalBound, maxArmLengthFromVerticalBound);
+
+    // safety net of 3 inches
+    maxArmLength -= 3;
+
+    // move the arm backwards if extended past max length
+    double curArmLength = baseArmLength + funcMotor9.getEncoder().getPosition() * f9EncoderToInches; //TODO
+    
     //accelerometer auto-balance also drive
     if (joystick.getRawButton(autoBalanceBtn))
     {
@@ -204,18 +261,35 @@ public class Robot extends TimedRobot {
 
     // functional modifiers
     if(joystick2.getRawButtonPressed(funcReverseBtn)) funcModifier *= -1;
-    if(joystick2.getRawButtonPressed(7)) 
+
+    // Arm extend
+
+    if (curArmLength < maxArmLength)
     {
-      funcMotor9.set(0.1);
+      if(joystick2.getRawButtonPressed(7)) 
+      {
+        funcMotor9.set(0.1);
+      }
+      else if (joystick2.getRawButton(8))
+      {
+        funcMotor9.set(-0.1);
+      }
+      else
+      {
+        funcMotor9.set(0);
+      }
+
+  
+      if (Math.abs(joystick2.getThrottle()) <= 0.05)
+      {
+        funcMotor9.set(0);
+      }
+      else
+      {
+        funcMotor9.set(limiter3.calculate(funcModifier * joystick2.getThrottle() * 0.35));
+      }
     }
-    else if (joystick2.getRawButton(8))
-    {
-      funcMotor9.set(-0.1);
-    }
-    else
-    {
-      funcMotor9.set(0);
-    }
+    else funcMotor9.set(0.25);
     
     // Arm pitch
     if (Math.abs(joystick2.getY()) <= 0.1)
@@ -229,17 +303,6 @@ public class Robot extends TimedRobot {
       funcMotor2.set(ControlMode.PercentOutput, -1*joystick2.getY());
     }
 
-    // Arm extend
-  
-    if (Math.abs(joystick2.getThrottle()) <= 0.1)
-    {
-      funcMotor9.set(0);
-    }
-    else
-    {
-      funcMotor9.set(funcModifier * joystick2.getThrottle() * 0.35);
-    }
-
     // gripper
     if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 0.2);
     else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, -0.2);
@@ -251,7 +314,11 @@ public class Robot extends TimedRobot {
       // find Y value when on flat ground to determine accelerometer bias
       pitchBias = builtInAccelerometer.getY();
       gravity = builtInAccelerometer.getZ();
+
+      // reset encoder for extending arm
+      funcMotor9.getEncoder().setPosition(0);
     }
+    System.out.println("Pot value: " + armAnglePot.getValue() + " | Calculated angle: " + armAngle + " | Arm length: " + curArmLength + " | Max arm length: " + maxArmLength + " | Smallest bound: " + (maxArmLengthFromHorizontalBound < maxArmLengthFromVerticalBound ? "H" : "V") );
 
   }
 
