@@ -26,6 +26,8 @@ import edu.wpi.first.wpilibj.AnalogInput;
 
 import edu.wpi.first.math.filter.SlewRateLimiter; 
 
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
  * each mode, as described in the TimedRobot documentation. If you change the name of this class or
@@ -33,8 +35,8 @@ import edu.wpi.first.math.filter.SlewRateLimiter;
  * project.
  */
 public class Robot extends TimedRobot {
-  private static final String kDefaultAuto = "Default";
-  private static final String kCustomAuto = "My Auto";
+  private static final String kDefaultAuto = "Auto1";
+  private static final String kCustomAuto = "Auto2";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
@@ -90,7 +92,7 @@ public class Robot extends TimedRobot {
   boolean autoStep1 = false;
 
   AnalogInput armAnglePot;
-  final int verticalReading = 3530;
+  final int verticalReading = 461;
   final double potValueToDegrees = 180.0/3270.0;
 
   final double maxVerticalHeightInches = 78;
@@ -104,6 +106,8 @@ public class Robot extends TimedRobot {
 
   DigitalInput armInput = new DigitalInput(0);
   //Initialize a trigger on PWM port 0
+
+  private static final String auto1 = "Auto1"; 
   
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -111,9 +115,9 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
-    m_chooser.addOption("My Auto", kCustomAuto);
-    SmartDashboard.putData("Auto choices", m_chooser);
+    m_chooser.setDefaultOption("Auto1", kDefaultAuto);
+    m_chooser.addOption("Auto2", kCustomAuto);
+    SmartDashboard.putData("Auto Routines: ", m_chooser);
 
     // controls
     joystick = new Joystick(0); // Controller in port 0
@@ -148,6 +152,8 @@ public class Robot extends TimedRobot {
     
     armAnglePot = new AnalogInput(3);
 
+
+
   }
 
   /**
@@ -172,34 +178,51 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    //m_autoSelected = m_chooser.getSelected();
+    m_autoSelected = m_chooser.getSelected();
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     System.out.println("Auto selected: " + m_autoSelected);
 
     pitchBias = builtInAccelerometer.getY();
     gravity = builtInAccelerometer.getZ();
 
+    moveMotorID5.getEncoder().setPosition(0);
+    autoStep1 = false;
   }
 
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() 
   { 
-    double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
-    if(autoStep1 == false)
-    {
-      differentialDrive.arcadeDrive(0, 0.1);
-      if(Math.abs(pitchAngle)>5)
-      {
-        autoStep1 = true;
-      }
-    }
-    else if(autoStep1 == true)
-    {
-      if (Math.abs(pitchAngle)>7.5)
-        differentialDrive.arcadeDrive(0, limiter2.calculate( 0.40*(pitchAngle/Math.abs(pitchAngle))));
-      else if(Math.abs(pitchAngle)>5)
-        differentialDrive.arcadeDrive(0, limiter2.calculate(0.35*(pitchAngle/Math.abs(pitchAngle))));
+    switch (m_autoSelected){
+      case kDefaultAuto:
+        double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
+        System.out.println(pitchAngle);
+        System.out.println(autoStep1);
+
+        if(autoStep1 == false)
+        {
+          differentialDrive.arcadeDrive(0, 0.4);
+          if(Math.abs(pitchAngle)>5.0)
+          {
+            autoStep1 = true;
+          }
+        }
+        else if(autoStep1 == true)
+        {
+          if (Math.abs(pitchAngle)>7.5)
+            differentialDrive.arcadeDrive(0, limiter2.calculate( 0.40*(pitchAngle/Math.abs(pitchAngle))));
+          else if(Math.abs(pitchAngle)>5)
+            differentialDrive.arcadeDrive(0, limiter2.calculate(0.35*(pitchAngle/Math.abs(pitchAngle))));
+       }
+       break;
+      case kCustomAuto:
+        final double distanceInInchesToMove = 24;
+        final double inchesPerEncoderClick =  1.76;
+        if(Math.abs(moveMotorID5.getEncoder().getPosition()) < distanceInInchesToMove/inchesPerEncoderClick)
+        differentialDrive.arcadeDrive(0, 0.2);
+        else 
+        differentialDrive.arcadeDrive(0, 0);
+
     }
         
   }
@@ -251,11 +274,12 @@ public class Robot extends TimedRobot {
     }
     else
     {
-      differentialDrive.arcadeDrive(limiter0.calculate(joystick.getX() * driveSpeed * 0.5), limiter1.calculate(joystick.getY() * driveSpeed));
+      differentialDrive.arcadeDrive(limiter0.calculate(joystick.getX() * driveSpeed * 0.5), limiter1.calculate(joystick.getY() * driveSpeed * 0.6));
     }
 
     //driving modifiers
-    if(joystick.getRawButtonPressed(driveReverseBtn)) driveSpeed *= -1;
+    if(joystick.getRawButtonPressed(driveReverseBtn)) driveSpeed *= 0.2;
+    else driveSpeed = 1;
     if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed < 1) driveSpeed += 0.25;
     if(joystick.getRawButtonPressed(driveSpeedUpBtn) && driveSpeed > -1) driveSpeed -= 0.25;
 
@@ -286,7 +310,7 @@ public class Robot extends TimedRobot {
       }
       else
       {
-        funcMotor9.set(limiter3.calculate(funcModifier * joystick2.getThrottle() * 0.35));
+        funcMotor9.set(limiter3.calculate(funcModifier * joystick2.getThrottle() * 0.25));
       }
     }
     else funcMotor9.set(0.25);
@@ -299,13 +323,13 @@ public class Robot extends TimedRobot {
     }
     else
     {
-      funcMotor1.set(ControlMode.PercentOutput, -1*joystick2.getY());
-      funcMotor2.set(ControlMode.PercentOutput, -1*joystick2.getY());
+      funcMotor1.set(ControlMode.PercentOutput, -1*joystick2.getY() * 1);
+      funcMotor2.set(ControlMode.PercentOutput, -1*joystick2.getY() * 1);
     }
 
     // gripper
-    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 0.2);
-    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, -0.2);
+    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 0.35);
+    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, -0.35);
     else funcMotor4.set(ControlMode.PercentOutput, 0);
 
     //accelerometer calibration
