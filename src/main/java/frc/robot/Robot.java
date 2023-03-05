@@ -4,7 +4,8 @@
 
 package frc.robot;
 
-import edu.wpi.first.wpilibj.TimedRobot;                        
+import edu.wpi.first.wpilibj.TimedRobot;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -15,6 +16,7 @@ import edu.wpi.first.wpilibj.motorcontrol.MotorControllerGroup;
 
 import com.ctre.phoenix.motorcontrol.VictorSPXControlMode;
 import com.ctre.phoenix.motorcontrol.can.VictorSPX;
+import com.fasterxml.jackson.annotation.JsonTypeInfo.None;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
 import com.ctre.phoenix.motorcontrol.ControlMode;
@@ -37,6 +39,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 public class Robot extends TimedRobot {
   private static final String kDefaultAuto = "Auto1";
   private static final String kCustomAuto = "Auto2";
+  private static final String kCustomAuto1 = "Auto3";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
@@ -108,6 +111,12 @@ public class Robot extends TimedRobot {
   //Initialize a trigger on PWM port 0
 
   private static final String auto1 = "Auto1"; 
+
+  //AUTONOMOUS TIMER
+  double startTime;
+  double[] angles;
+  double angleCount = 0;
+
   
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -117,6 +126,7 @@ public class Robot extends TimedRobot {
   public void robotInit() {
     m_chooser.setDefaultOption("Auto1", kDefaultAuto);
     m_chooser.addOption("Auto2", kCustomAuto);
+    m_chooser.addOption("Auto3", kCustomAuto1);
     SmartDashboard.putData("Auto Routines: ", m_chooser);
 
     // controls
@@ -181,12 +191,15 @@ public class Robot extends TimedRobot {
     m_autoSelected = m_chooser.getSelected();
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     System.out.println("Auto selected: " + m_autoSelected);
-
+    angles = new double[21];
+    angleCount = 0;
     pitchBias = builtInAccelerometer.getY();
     gravity = builtInAccelerometer.getZ();
 
     moveMotorID5.getEncoder().setPosition(0);
     autoStep1 = false;
+
+    startTime = Timer.getFPGATimestamp();
   }
 
   /** This function is called periodically during autonomous. */
@@ -195,34 +208,86 @@ public class Robot extends TimedRobot {
   { 
     switch (m_autoSelected){
       case kDefaultAuto:
-        double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
-        System.out.println(pitchAngle);
-        System.out.println(autoStep1);
-
-        if(autoStep1 == false)
+        double time2 = Timer.getFPGATimestamp();
+        if (time2 - startTime < 0.2)
         {
-          differentialDrive.arcadeDrive(0, 0.4);
-          if(Math.abs(pitchAngle)>5.0)
+          pitchBias = builtInAccelerometer.getY();
+          gravity = builtInAccelerometer.getZ();
+        }
+        
+        double pitchAngle = Math.atan((builtInAccelerometer.getY()-pitchBias)/builtInAccelerometer.getZ())*180/Math.PI;
+        //System.out.println(pitchAngle);
+        //System.out.println(autoStep1);
+        System.out.println(autoStep1);
+        if(!autoStep1)
+        {
+          moveMotorID5.set(-0.25);
+          moveMotorID6.set(0.25);
+
+          //moveMotorID7.set(-0.6);
+          //moveMotorID8.set(0.6);
+          angles[angles.length-1] = pitchAngle;
+          angleCount++;
+          if (angleCount > 20) {
+            for(int i = 0; i < angles.length-1; i++)
+            {
+              angles[i] = angles[i+1];
+            }
+          }
+
+          if(angles.length >=20)
           {
+            double avg = 0;
+            for (int j = 0; j < 20; j++) {
+              avg += angles[j];
+            }
+            avg/=20;
+            System.out.println(avg);
+            if (Math.abs(avg) > 10.0)
             autoStep1 = true;
           }
         }
-        else if(autoStep1 == true)
+        else
         {
           if (Math.abs(pitchAngle)>7.5)
-            differentialDrive.arcadeDrive(0, limiter2.calculate( 0.40*(pitchAngle/Math.abs(pitchAngle))));
+          {
+            moveMotorID5.set(-0.1);
+            moveMotorID6.set(0.1);
+          }
           else if(Math.abs(pitchAngle)>5)
-            differentialDrive.arcadeDrive(0, limiter2.calculate(0.35*(pitchAngle/Math.abs(pitchAngle))));
-       }
-       break;
+          {
+            moveMotorID5.set(limiter2.calculate(-0.35*(pitchAngle/Math.abs(pitchAngle))));
+            moveMotorID6.set(limiter2.calculate(0.35*(pitchAngle/Math.abs(pitchAngle))));
+          }
+        }
+        break;
       case kCustomAuto:
-        final double distanceInInchesToMove = 24;
+        final double distanceInInchesToMove = 48;
         final double inchesPerEncoderClick =  1.76;
         if(Math.abs(moveMotorID5.getEncoder().getPosition()) < distanceInInchesToMove/inchesPerEncoderClick)
-        differentialDrive.arcadeDrive(0, 0.2);
+        {
+          moveMotorID5.set(-0.1);
+          moveMotorID6.set(0.1);
+        }
         else 
-        differentialDrive.arcadeDrive(0, 0);
-
+        {
+          moveMotorID5.set(0);
+          moveMotorID6.set(0);
+        }
+        break;
+      case kCustomAuto1:
+        double time = Timer.getFPGATimestamp();
+        if (time - startTime < 3.5)
+        {
+          moveMotorID5.set(-0.1);
+          moveMotorID6.set(0.1);
+        }
+        else
+        {
+          moveMotorID5.set(0);
+          moveMotorID6.set(0);
+        }
+        break;
     }
         
   }
@@ -274,7 +339,11 @@ public class Robot extends TimedRobot {
     }
     else
     {
+      if(joystick.getRawButton(7) || joystick.getRawButton(8))
+        differentialDrive.arcadeDrive(limiter0.calculate(joystick.getX() * driveSpeed * 0.5), limiter1.calculate(joystick.getY() * driveSpeed));
+      else
       differentialDrive.arcadeDrive(limiter0.calculate(joystick.getX() * driveSpeed * 0.5), limiter1.calculate(joystick.getY() * driveSpeed * 0.6));
+
     }
 
     //driving modifiers
@@ -288,8 +357,8 @@ public class Robot extends TimedRobot {
 
     // Arm extend
 
-    if (curArmLength < maxArmLength)
-    {
+    //if (curArmLength < maxArmLength)
+    //{
       if(joystick2.getRawButtonPressed(7)) 
       {
         funcMotor9.set(0.1);
@@ -312,8 +381,8 @@ public class Robot extends TimedRobot {
       {
         funcMotor9.set(limiter3.calculate(funcModifier * joystick2.getThrottle() * 0.25));
       }
-    }
-    else funcMotor9.set(0.25);
+    //}
+    //else funcMotor9.set(0.25);
     
     // Arm pitch
     if (Math.abs(joystick2.getY()) <= 0.1)
@@ -328,8 +397,8 @@ public class Robot extends TimedRobot {
     }
 
     // gripper
-    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 0.35);
-    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, -0.35);
+    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 0.6);
+    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, -0.6);
     else funcMotor4.set(ControlMode.PercentOutput, 0);
 
     //accelerometer calibration
@@ -342,7 +411,7 @@ public class Robot extends TimedRobot {
       // reset encoder for extending arm
       funcMotor9.getEncoder().setPosition(0);
     }
-    System.out.println("Pot value: " + armAnglePot.getValue() + " | Calculated angle: " + armAngle + " | Arm length: " + curArmLength + " | Max arm length: " + maxArmLength + " | Smallest bound: " + (maxArmLengthFromHorizontalBound < maxArmLengthFromVerticalBound ? "H" : "V") );
+    //System.out.println("Pot value: " + armAnglePot.getValue() + " | Calculated angle: " + armAngle + " | Arm length: " + curArmLength + " | Max arm length: " + maxArmLength + " | Smallest bound: " + (maxArmLengthFromHorizontalBound < maxArmLengthFromVerticalBound ? "H" : "V") );
 
   }
 
