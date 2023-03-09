@@ -139,10 +139,11 @@ public class Robot extends TimedRobot {
   @Override
   public void robotInit() {
 
-    m_chooser.setDefaultOption("Auto1", kDefaultAuto);
-    m_chooser.addOption("Auto2", kCustomAuto);
-    m_chooser.addOption("Auto3", kCustomAuto1);
-    m_chooser.addOption("AutoTest", autoTest);
+    // TODO: Do these auto options actually reflect what is happening?
+    m_chooser.setDefaultOption("Exit Community (Default Auto)", kAuto1);
+    m_chooser.addOption("Balance on Charge Station", kAuto2);
+    m_chooser.addOption("Exit Community, Balance on Charge Station", kAuto3);
+    m_chooser.addOption("Test Auto", autoTest);
     SmartDashboard.putData("Auto Routines: ", m_chooser);
 
     // controls
@@ -231,13 +232,12 @@ public class Robot extends TimedRobot {
     // angles = new double[21];  // this should be a queue
     // angleCount = 0;
     
-    Queue<double> previousAngles = = new LinkedList<>();
+    // Queue<double> previousAngles = = new LinkedList<>();
 
     pitchBias = builtInAccelerometer.getY();
     gravity = builtInAccelerometer.getZ();
 
     moveMotorID5.getEncoder().setPosition(0);
-    // autoStep1 = false;
 
     robotIsMovingForward = true;
     robotIsOnChargeStation = false;
@@ -251,12 +251,27 @@ public class Robot extends TimedRobot {
   public void autonomousPeriodic() 
   { 
     switch (m_autoSelected){
+      
+      // this auto mode should exit community
+      case kAuto1:
+        final double distanceInInchesToMove = 48;
+        final double inchesPerEncoderClick =  1.76;
+        if(Math.abs(moveMotorID5.getEncoder().getPosition()) < distanceInInchesToMove/inchesPerEncoderClick)
+        {
+          moveMotorID5.set(-0.1);
+          moveMotorID6.set(0.1);
+        }
+        else 
+        {
+          moveMotorID5.set(0);
+          moveMotorID6.set(0);
+        }
+        break;
 
-      // TODO: this is our auto mode that should score us points for leaving the community, and also for balancing on the charging station
 
 
       // this our auto mode that should move forward and balance on the charging station
-      case kDefaultAuto:
+      case kAuto2:
         // autonomous mode that should: 
             // move straight forward until an angle is detected
             // once an angle is detected, toggle a boolean variable to indicate that the robot is now climbing the ramp. continue moving straight forward (slower?).
@@ -331,21 +346,8 @@ public class Robot extends TimedRobot {
         }
         break;
 
-      case kCustomAuto:
-        final double distanceInInchesToMove = 48;
-        final double inchesPerEncoderClick =  1.76;
-        if(Math.abs(moveMotorID5.getEncoder().getPosition()) < distanceInInchesToMove/inchesPerEncoderClick)
-        {
-          moveMotorID5.set(-0.1);
-          moveMotorID6.set(0.1);
-        }
-        else 
-        {
-          moveMotorID5.set(0);
-          moveMotorID6.set(0);
-        }
-        break;
-      case kCustomAuto1:
+      // TODO: this is our auto mode that should score us points for leaving the community, and also for balancing on the charging station
+      case kAuto3:
         //Attempt
         pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
         //System.out.println("angle calculated: " + String.valueOf(pitchAngle));
@@ -362,6 +364,7 @@ public class Robot extends TimedRobot {
           moveMotorID7.set(0.1);
         }
         break;
+
       case autoTest:
         
         double tilt = (builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity)*90;
