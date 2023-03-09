@@ -29,6 +29,16 @@ import edu.wpi.first.wpilibj.AnalogInput;
 import edu.wpi.first.math.filter.SlewRateLimiter; 
 
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.cameraserver.CameraServer;
+import edu.wpi.first.cscore.CameraServerJNI;
+import edu.wpi.first.cscore.CvSink;
+import edu.wpi.first.cscore.CvSource;
+import edu.wpi.first.cscore.VideoMode.PixelFormat;
+import org.opencv.imgproc.Imgproc;
+
+import javax.lang.model.util.ElementScanner14;
+
+import org.opencv.core.*;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -40,6 +50,7 @@ public class Robot extends TimedRobot {
   private static final String kDefaultAuto = "Auto1";
   private static final String kCustomAuto = "Auto2";
   private static final String kCustomAuto1 = "Auto3";
+  private static final String autoTest = "AutoTest";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
 
@@ -117,6 +128,7 @@ public class Robot extends TimedRobot {
   double[] angles;
   double angleCount = 0;
 
+  private CvSource outputStream;
   
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -124,9 +136,11 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
+
     m_chooser.setDefaultOption("Auto1", kDefaultAuto);
     m_chooser.addOption("Auto2", kCustomAuto);
     m_chooser.addOption("Auto3", kCustomAuto1);
+    m_chooser.addOption("AutoTest", autoTest);
     SmartDashboard.putData("Auto Routines: ", m_chooser);
 
     // controls
@@ -164,6 +178,27 @@ public class Robot extends TimedRobot {
 
 
 
+    // Camera setup
+    new Thread(() ->  {
+      CameraServer.startAutomaticCapture().setVideoMode(PixelFormat.kYUYV, 640, 480, 60);
+      CvSink cvSink = CameraServer.getVideo();
+      outputStream = CameraServer.putVideo("Processed", 640, 480);
+
+      Mat mask = new Mat();
+
+      Point p1 = new Point(0,0);
+      Point p2 = new Point(100,100);
+      while(!Thread.interrupted())
+      {
+        if(cvSink.grabFrame(mask) == 0)
+        {
+          continue;
+        }
+        Imgproc.line(mask, p1, p2, new Scalar(255,0,255));
+        outputStream.putFrame(mask);
+      }
+
+    }).start();
   }
 
   /**
@@ -251,13 +286,21 @@ public class Robot extends TimedRobot {
         {
           if (Math.abs(pitchAngle)>7.5)
           {
-            moveMotorID5.set(-0.1);
-            moveMotorID6.set(0.1);
+            //differentialDrive.arcadeDrive(0, limiter1.calculate(0.35 * 0.6 * (pitchAngle/Math.abs(pitchAngle))));
+
+            moveMotorID5.set((-0.25*(pitchAngle/Math.abs(pitchAngle))));
+            moveMotorID6.set((0.25*(pitchAngle/Math.abs(pitchAngle))));
           }
           else if(Math.abs(pitchAngle)>5)
           {
-            moveMotorID5.set(limiter2.calculate(-0.35*(pitchAngle/Math.abs(pitchAngle))));
-            moveMotorID6.set(limiter2.calculate(0.35*(pitchAngle/Math.abs(pitchAngle))));
+            differentialDrive.arcadeDrive(0, limiter1.calculate(0.35 * 0.6 * (pitchAngle/Math.abs(pitchAngle))));
+
+            moveMotorID5.set((-0.15*(pitchAngle/Math.abs(pitchAngle))));
+            moveMotorID6.set((0.15*(pitchAngle/Math.abs(pitchAngle))));
+          }
+          else{
+            moveMotorID5.set(0);
+            moveMotorID6.set(0);
           }
         }
         break;
@@ -276,18 +319,34 @@ public class Robot extends TimedRobot {
         }
         break;
       case kCustomAuto1:
-        double time = Timer.getFPGATimestamp();
-        if (time - startTime < 3.5)
+        //Attempt
+        pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
+        //System.out.println("angle calculated: " + String.valueOf(pitchAngle));
+
+        // pitchAngle < 0 means we need to drive backwards
+        if (Math.abs(pitchAngle)>7.5)
         {
-          moveMotorID5.set(-0.1);
-          moveMotorID6.set(0.1);
+          moveMotorID8.set(-0.2);
+          moveMotorID7.set(0.2);
         }
-        else
+        else if(Math.abs(pitchAngle)>5)
         {
-          moveMotorID5.set(0);
-          moveMotorID6.set(0);
+          moveMotorID8.set(-0.1);
+          moveMotorID7.set(0.1);
         }
         break;
+      case autoTest:
+        
+        double tilt = (builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity)*90;
+        double dir = (Math.abs(tilt))/tilt;
+        System.out.println(pitchAngle = (tilt));
+
+        if ((Math.abs(tilt))/tilt > 5)
+        {
+          moveMotorID5.set(-0.1 * dir);
+          moveMotorID6.set(0.1 * dir);
+        }
+
     }
         
   }
