@@ -40,6 +40,8 @@ import javax.lang.model.util.ElementScanner14;
 
 import org.opencv.core.*;
 
+import java.util.Queue;
+
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
  * each mode, as described in the TimedRobot documentation. If you change the name of this class or
@@ -226,13 +228,20 @@ public class Robot extends TimedRobot {
     m_autoSelected = m_chooser.getSelected();
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     System.out.println("Auto selected: " + m_autoSelected);
-    angles = new double[21];
-    angleCount = 0;
+    // angles = new double[21];  // this should be a queue
+    // angleCount = 0;
+    
+    Queue<double> previousAngles = = new LinkedList<>();
+
     pitchBias = builtInAccelerometer.getY();
     gravity = builtInAccelerometer.getZ();
 
     moveMotorID5.getEncoder().setPosition(0);
-    autoStep1 = false;
+    // autoStep1 = false;
+
+    robotIsMovingForward = true;
+    robotIsOnChargeStation = false;
+    robotIsBalancingOnChargeStation = false;
 
     startTime = Timer.getFPGATimestamp();
   }
@@ -242,59 +251,76 @@ public class Robot extends TimedRobot {
   public void autonomousPeriodic() 
   { 
     switch (m_autoSelected){
+
+      // TODO: this is our auto mode that should score us points for leaving the community, and also for balancing on the charging station
+
+
+      // this our auto mode that should move forward and balance on the charging station
       case kDefaultAuto:
-        double time2 = Timer.getFPGATimestamp();
-        if (time2 - startTime < 0.2)
+        // autonomous mode that should: 
+            // move straight forward until an angle is detected
+            // once an angle is detected, toggle a boolean variable to indicate that the robot is now climbing the ramp. continue moving straight forward (slower?).
+            // when the robot is parallel to the ground (even for a moment), enable balance mode.
+                // this logic could not match up with reality. the robot for example could be parallel to the ground in a position I'm not expecting while writing this.
+            // balance the robot so that the robot is parallel with the ground again.
+
+
+        double currentTime = Timer.getFPGATimestamp();
+        double elapsedTimeSeconds = currentTime - startTime;  // is this actually in seconds?
+
+        double pitchAngle = Math.atan((builtInAccelerometer.getY()-pitchBias)/builtInAccelerometer.getZ())*180/Math.PI;
+
+        // double averageAngle = findAverageAngleFromPreviousAngles(previousAngles) 
+
+        /*
+        // TODO: write this function and insert it somewhere
+        double findAverageAngleFromPreviousAngles(Queue<double> previousAngles)
+        { 
+          // peek angles
+
+          // average them out
+
+          return 
+        }
+        */
+
+
+        
+        // calibrate gyro? why are we also doing this in init?
+        if (elapsedTimeSeconds < 0.2)
         {
           pitchBias = builtInAccelerometer.getY();
           gravity = builtInAccelerometer.getZ();
         }
-        
-        double pitchAngle = Math.atan((builtInAccelerometer.getY()-pitchBias)/builtInAccelerometer.getZ())*180/Math.PI;
-        //System.out.println(pitchAngle);
-        //System.out.println(autoStep1);
-        System.out.println(autoStep1);
-        if(!autoStep1)
+        else if (robotIsMovingForward) // this is where the robot initially moves forward.
         {
+          // move forward
           moveMotorID5.set(-0.25);
           moveMotorID6.set(0.25);
 
-          //moveMotorID7.set(-0.6);
-          //moveMotorID8.set(0.6);
-          angles[angles.length-1] = pitchAngle;
-          angleCount++;
-          if (angleCount > 20) {
-            for(int i = 0; i < angles.length-1; i++)
-            {
-              angles[i] = angles[i+1];
-            }
+
+          // if an angle is detected, toggle variable
+          if (Math.abs(pitchAngle) > 0.1) {  // TODO: this angle constant will need some tuning with the robot!!, this should probably be the average angle as well
+            robotIsOnChargeStation = true;
           }
 
-          if(angles.length >=20)
-          {
-            double avg = 0;
-            for (int j = 0; j < 20; j++) {
-              avg += angles[j];
-            }
-            avg/=20;
-            System.out.println(avg);
-            if (Math.abs(avg) > 10.0)
-            autoStep1 = true;
+
+          // if variable is toggled and angle is 0, exit and enter balance mode.
+          if (robotIsOnChargeStation && (Math.abs(pitchAngle) < 0.1)) {  // TODO: this angle constant will need some tuning with the robot!!, this should probably be the average angle as well
+            robotIsMovingForward = false;
+            robotIsBalancingOnChargeStation = true;
           }
         }
-        else
+        else if (robotIsBalancingOnChargeStation)  // this is balance mode // this will engage until the end of auto which means if anything bumps the robot/platform, it will still try to balance
         {
+          // TODO: convert this balance stuff into a function
           if (Math.abs(pitchAngle)>7.5)
           {
-            //differentialDrive.arcadeDrive(0, limiter1.calculate(0.35 * 0.6 * (pitchAngle/Math.abs(pitchAngle))));
-
             moveMotorID5.set((-0.25*(pitchAngle/Math.abs(pitchAngle))));
             moveMotorID6.set((0.25*(pitchAngle/Math.abs(pitchAngle))));
           }
           else if(Math.abs(pitchAngle)>5)
           {
-            differentialDrive.arcadeDrive(0, limiter1.calculate(0.35 * 0.6 * (pitchAngle/Math.abs(pitchAngle))));
-
             moveMotorID5.set((-0.15*(pitchAngle/Math.abs(pitchAngle))));
             moveMotorID6.set((0.15*(pitchAngle/Math.abs(pitchAngle))));
           }
@@ -304,6 +330,7 @@ public class Robot extends TimedRobot {
           }
         }
         break;
+
       case kCustomAuto:
         final double distanceInInchesToMove = 48;
         final double inchesPerEncoderClick =  1.76;
