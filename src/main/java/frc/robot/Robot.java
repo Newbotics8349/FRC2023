@@ -41,6 +41,10 @@ import javax.lang.model.util.ElementScanner14;
 import org.opencv.core.*;
 
 import java.util.Queue;
+import java.util.LinkedList;
+import java.util.Collections;
+import java.util.ArrayList;
+import edu.wpi.first.wpilibj.ADIS16448_IMU;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -49,9 +53,9 @@ import java.util.Queue;
  * project.
  */
 public class Robot extends TimedRobot {
-  private static final String kDefaultAuto = "Auto1";
-  private static final String kCustomAuto = "Auto2";
-  private static final String kCustomAuto1 = "Auto3";
+  private static final String autoDrive4FT = "autoDrive4FT";
+  private static final String autoBalance = "autoBalance";
+  private static final String autoLeaveAndBalance = "autoLeaveAndBalance";
   private static final String autoTest = "AutoTest";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
@@ -62,6 +66,7 @@ public class Robot extends TimedRobot {
 
   //accelerometer
   private BuiltInAccelerometer builtInAccelerometer;
+  private ADIS16448_IMU gyro;
   final int accelCalibrateBtn = 2;
   final int autoBalanceBtn = 3;
   private double pitchBias = 0;
@@ -105,7 +110,10 @@ public class Robot extends TimedRobot {
   private SlewRateLimiter limiter2;
   private SlewRateLimiter limiter3;
 
-  boolean autoStep1 = false;
+  boolean robotIsMovingForward;
+  boolean robotIsMovingBackward;
+  boolean robotIsOnChargeStation;
+  boolean robotIsBalancingOnChargeStation;
 
   AnalogInput armAnglePot;
   final int verticalReading = 461;
@@ -121,10 +129,11 @@ public class Robot extends TimedRobot {
   final double f9EncoderToInches = -12.5 / 6.3; 
 
   DigitalInput armInput = new DigitalInput(0);
-  //Initialize a trigger on PWM port 0
+  Queue<Double> previousAngles;
+  double prevSpeed = 0;
+  
 
-  private static final String auto1 = "Auto1"; 
-
+  
   //AUTONOMOUS TIMER
   double startTime;
   double[] angles;
@@ -139,10 +148,9 @@ public class Robot extends TimedRobot {
   @Override
   public void robotInit() {
 
-    // TODO: Do these auto options actually reflect what is happening?
-    m_chooser.setDefaultOption("Exit Community (Default Auto)", kAuto1);
-    m_chooser.addOption("Balance on Charge Station", kAuto2);
-    m_chooser.addOption("Exit Community, Balance on Charge Station", kAuto3);
+    m_chooser.setDefaultOption("Exit Community (Default Auto)", autoDrive4FT);
+    m_chooser.addOption("Balance on Charge Station", autoBalance);
+    m_chooser.addOption("Exit Community, Balance on Charge Station", autoLeaveAndBalance);
     m_chooser.addOption("Test Auto", autoTest);
     SmartDashboard.putData("Auto Routines: ", m_chooser);
 
@@ -152,16 +160,18 @@ public class Robot extends TimedRobot {
 
     //accelerometer
     builtInAccelerometer = new BuiltInAccelerometer();
+    gyro = new ADIS16448_IMU();
 
     //drive motors and control objects
     moveMotorID5 = new CANSparkMax(5,MotorType.kBrushless);
     moveMotorID7 = new CANSparkMax(7,MotorType.kBrushed);
     rightMoveMotors = new MotorControllerGroup(moveMotorID5, moveMotorID7);
     moveMotorID6 = new CANSparkMax(6,MotorType.kBrushless);
-    moveMotorID8 = new CANSparkMax(8,MotorType.kBrushless);
+    moveMotorID8 = new CANSparkMax(8,MotorType.kBrushed);
+    moveMotorID7.setInverted(true);
     leftMoveMotors = new MotorControllerGroup(moveMotorID6, moveMotorID8);
-
-    differentialDrive = new DifferentialDrive(moveMotorID6, moveMotorID5);
+    //differentialDrive = new DifferentialDrive(moveMotorID6, moveMotorID5);
+    differentialDrive = new DifferentialDrive(leftMoveMotors, rightMoveMotors);
     
     //functional motors
     funcMotor9 = new CANSparkMax(9,MotorType.kBrushless);
@@ -178,8 +188,6 @@ public class Robot extends TimedRobot {
 
     
     armAnglePot = new AnalogInput(3);
-
-
 
     // Camera setup
     new Thread(() ->  {
@@ -227,12 +235,10 @@ public class Robot extends TimedRobot {
   @Override
   public void autonomousInit() {
     m_autoSelected = m_chooser.getSelected();
-    // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     System.out.println("Auto selected: " + m_autoSelected);
-    // angles = new double[21];  // this should be a queue
-    // angleCount = 0;
     
-    // Queue<double> previousAngles = = new LinkedList<>();
+    previousAngles = new LinkedList<>();
+    prevSpeed = 0;
 
     pitchBias = builtInAccelerometer.getY();
     gravity = builtInAccelerometer.getZ();
@@ -240,38 +246,40 @@ public class Robot extends TimedRobot {
     moveMotorID5.getEncoder().setPosition(0);
 
     robotIsMovingForward = true;
+    robotIsMovingBackward = false;
     robotIsOnChargeStation = false;
     robotIsBalancingOnChargeStation = false;
 
     startTime = Timer.getFPGATimestamp();
+
+    gyro.calibrate();
   }
 
   /** This function is called periodically during autonomous. */
   @Override
   public void autonomousPeriodic() 
   { 
-    switch (m_autoSelected){
-      
+    double pitchAngle;
+    switch (m_autoSelected){     
       // this auto mode should exit community
-      case kAuto1:
-        final double distanceInInchesToMove = 48;
+      case autoDrive4FT:
+        final double distanceInInchesToMove = 48; // moves 60 in practice
         final double inchesPerEncoderClick =  1.76;
         if(Math.abs(moveMotorID5.getEncoder().getPosition()) < distanceInInchesToMove/inchesPerEncoderClick)
         {
-          moveMotorID5.set(-0.1);
-          moveMotorID6.set(0.1);
+          moveStraight(0.1);
         }
         else 
         {
-          moveMotorID5.set(0);
-          moveMotorID6.set(0);
+          moveStraight(0);
         }
+        //double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
+        //System.out.println(pitchAngle);
         break;
 
 
-
       // this our auto mode that should move forward and balance on the charging station
-      case kAuto2:
+      case autoBalance:
         // autonomous mode that should: 
             // move straight forward until an angle is detected
             // once an angle is detected, toggle a boolean variable to indicate that the robot is now climbing the ramp. continue moving straight forward (slower?).
@@ -279,95 +287,104 @@ public class Robot extends TimedRobot {
                 // this logic could not match up with reality. the robot for example could be parallel to the ground in a position I'm not expecting while writing this.
             // balance the robot so that the robot is parallel with the ground again.
 
+        pitchAngle = gyro.getGyroAngleY();    
+        System.out.println(pitchAngle + " | " + robotIsBalancingOnChargeStation);
 
-        double currentTime = Timer.getFPGATimestamp();
-        double elapsedTimeSeconds = currentTime - startTime;  // is this actually in seconds?
-
-        double pitchAngle = Math.atan((builtInAccelerometer.getY()-pitchBias)/builtInAccelerometer.getZ())*180/Math.PI;
-
-        // double averageAngle = findAverageAngleFromPreviousAngles(previousAngles) 
-
-        /*
-        // TODO: write this function and insert it somewhere
-        double findAverageAngleFromPreviousAngles(Queue<double> previousAngles)
-        { 
-          // peek angles
-
-          // average them out
-
-          return 
-        }
-        */
-
-
-        
-        // calibrate gyro? why are we also doing this in init?
-        if (elapsedTimeSeconds < 0.2)
-        {
-          pitchBias = builtInAccelerometer.getY();
-          gravity = builtInAccelerometer.getZ();
-        }
-        else if (robotIsMovingForward) // this is where the robot initially moves forward.
+        if (robotIsMovingForward) // this is where the robot initially moves forward.
         {
           // move forward
-          moveMotorID5.set(-0.25);
-          moveMotorID6.set(0.25);
-
-
+          prevSpeed = (prevSpeed*0.99)+(0.01*0.15);
+          moveStraight(prevSpeed);
+          
           // if an angle is detected, toggle variable
-          if (Math.abs(pitchAngle) > 0.1) {  // TODO: this angle constant will need some tuning with the robot!!, this should probably be the average angle as well
-            robotIsOnChargeStation = true;
-          }
-
-
-          // if variable is toggled and angle is 0, exit and enter balance mode.
-          if (robotIsOnChargeStation && (Math.abs(pitchAngle) < 0.1)) {  // TODO: this angle constant will need some tuning with the robot!!, this should probably be the average angle as well
-            robotIsMovingForward = false;
+          if (Math.abs(pitchAngle) > 7.5) {  // TODO: this angle constant will need some tuning with the robot!!, this should probably be the average angle as well
             robotIsBalancingOnChargeStation = true;
+            robotIsMovingForward = false;
           }
         }
-        else if (robotIsBalancingOnChargeStation)  // this is balance mode // this will engage until the end of auto which means if anything bumps the robot/platform, it will still try to balance
+        else  // this is balance mode // this will engage until the end of auto which means if anything bumps the robot/platform, it will still try to balance
         {
-          // TODO: convert this balance stuff into a function
           if (Math.abs(pitchAngle)>7.5)
           {
-            moveMotorID5.set((-0.25*(pitchAngle/Math.abs(pitchAngle))));
-            moveMotorID6.set((0.25*(pitchAngle/Math.abs(pitchAngle))));
+            prevSpeed = (prevSpeed*0.7)+(0.3*(-0.13))*(pitchAngle/Math.abs(pitchAngle));
+            moveStraight(prevSpeed);
           }
           else if(Math.abs(pitchAngle)>5)
           {
-            moveMotorID5.set((-0.15*(pitchAngle/Math.abs(pitchAngle))));
-            moveMotorID6.set((0.15*(pitchAngle/Math.abs(pitchAngle))));
+            prevSpeed = (prevSpeed*0.6)+(0.4*(-0.07))*(pitchAngle/Math.abs(pitchAngle));
+            moveStraight(prevSpeed);
           }
           else{
-            moveMotorID5.set(0);
-            moveMotorID6.set(0);
+            moveStraight(0);
           }
         }
         break;
 
-      // TODO: this is our auto mode that should score us points for leaving the community, and also for balancing on the charging station
-      case kAuto3:
-        //Attempt
-        pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
-        //System.out.println("angle calculated: " + String.valueOf(pitchAngle));
+      // this is our auto mode that should score us points for leaving the community, and also for balancing on the charging station
+      case autoLeaveAndBalance:
+        pitchAngle = gyro.getGyroAngleY();    
+        System.out.println(pitchAngle + " | " + robotIsOnChargeStation);
 
-        // pitchAngle < 0 means we need to drive backwards
-        if (Math.abs(pitchAngle)>7.5)
+        if (robotIsMovingForward) // this is where the robot initially moves forward.
         {
-          moveMotorID8.set(-0.2);
-          moveMotorID7.set(0.2);
+          // move forward
+          prevSpeed = (prevSpeed*0.99)+(0.01*0.15);
+          moveStraight(prevSpeed);
+          
+          // if an angle is detected, toggle variable
+          if (Math.abs(pitchAngle) > 7.5) {  // TODO: this angle constant will need some tuning with the robot!!, this should probably be the average angle as well
+            robotIsOnChargeStation = true;
+            robotIsMovingForward = false;
+            moveMotorID5.getEncoder().setPosition(0);
+          }
         }
-        else if(Math.abs(pitchAngle)>5)
+        else if(robotIsOnChargeStation)
         {
-          moveMotorID8.set(-0.1);
-          moveMotorID7.set(0.1);
+          final double distanceInInchesToMove2 = 80; // moves 60 in practice
+          final double inchesPerEncoderClick2 =  1.76;
+          if(Math.abs(moveMotorID5.getEncoder().getPosition()) < distanceInInchesToMove2/inchesPerEncoderClick2)
+          {
+            moveStraight(0.2);
+          }
+          else 
+          {
+            robotIsMovingBackward = true;
+            robotIsOnChargeStation = false;
+          }
+        }
+        else if(robotIsMovingBackward)
+        {
+          // move forward
+          prevSpeed = (prevSpeed*0.99)+(0.01*-0.15);
+          moveStraight(prevSpeed);
+          
+          // if an angle is detected, toggle variable
+          if (Math.abs(pitchAngle) > 7.5) {  // TODO: this angle constant will need some tuning with the robot!!, this should probably be the average angle as well
+            robotIsBalancingOnChargeStation = true;
+            robotIsMovingBackward = false;
+          }
+        }
+        else if(robotIsBalancingOnChargeStation)  // this is balance mode // this will engage until the end of auto which means if anything bumps the robot/platform, it will still try to balance
+        {
+          if (Math.abs(pitchAngle)>10)
+          {
+            prevSpeed = (prevSpeed*0.7)+(0.3*(-0.13))*(pitchAngle/Math.abs(pitchAngle));
+            moveStraight(prevSpeed);
+          }
+          else if(Math.abs(pitchAngle)>5)
+          {
+            prevSpeed = (prevSpeed*0.6)+(0.4*(-0.07))*(pitchAngle/Math.abs(pitchAngle));
+            moveStraight(prevSpeed);
+          }
+          else{
+            moveStraight(0);
+          }
         }
         break;
 
       case autoTest:
         
-        double tilt = (builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity)*90;
+        /*double tilt = (builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity)*90;
         double dir = (Math.abs(tilt))/tilt;
         System.out.println(pitchAngle = (tilt));
 
@@ -375,10 +392,23 @@ public class Robot extends TimedRobot {
         {
           moveMotorID5.set(-0.1 * dir);
           moveMotorID6.set(0.1 * dir);
-        }
+        }*/
+        System.out.print("X: ");
+        System.out.print(gyro.getGyroAngleX());
+        System.out.print("\tY: ");
+        System.out.print(gyro.getGyroAngleY());
+        System.out.print("\tZ: ");
+        System.out.println(gyro.getGyroAngleZ());
 
-    }
-        
+    }   
+  }
+
+  public void moveStraight(double speed)
+  {
+    moveMotorID5.set(-speed);
+    moveMotorID7.set(-speed);
+    moveMotorID6.set(speed);
+    moveMotorID8.set(speed);
   }
 
   /** This function is called once when teleop is enabled. */
@@ -417,13 +447,13 @@ public class Robot extends TimedRobot {
     {
       // Y is pitch
       double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
-      //System.out.println("angle calculated: " + String.valueOf(pitchAngle));
+      System.out.println("angle calculated: " + String.valueOf(pitchAngle));
 
       // pitchAngle < 0 means we need to drive backwards
       if (Math.abs(pitchAngle)>7.5)
         differentialDrive.arcadeDrive(0, limiter2.calculate( 0.40*(pitchAngle/Math.abs(pitchAngle))));
       else if(Math.abs(pitchAngle)>5)
-        differentialDrive.arcadeDrive(0, limiter2.calculate(0.35*(pitchAngle/Math.abs(pitchAngle))));
+        differentialDrive.arcadeDrive(0, limiter2.calculate(0.25*(pitchAngle/Math.abs(pitchAngle))));
       //System.out.println("Driving at speed: " + String.valueOf((1.0/45.0)*(pitchAngle)*driveSpeed));
     }
     else
