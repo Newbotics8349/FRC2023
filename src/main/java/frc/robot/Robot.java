@@ -41,6 +41,7 @@ import javax.lang.model.util.ElementScanner14;
 import org.opencv.core.*;
 
 import java.util.Queue;
+import java.util.concurrent.SynchronousQueue;
 import java.util.LinkedList;
 import java.util.Collections;
 import java.util.ArrayList;
@@ -132,8 +133,10 @@ public class Robot extends TimedRobot {
   Queue<Double> previousAngles;
   double prevSpeed = 0;
   
-
+  Point p1;
+  Point p2;
   
+
   //AUTONOMOUS TIMER
   double startTime;
   double[] angles;
@@ -153,6 +156,9 @@ public class Robot extends TimedRobot {
     m_chooser.addOption("Exit Community, Balance on Charge Station", autoLeaveAndBalance);
     m_chooser.addOption("Test Auto", autoTest);
     SmartDashboard.putData("Auto Routines: ", m_chooser);
+
+    Point p1 = new Point(545,0);
+    Point p2 = new Point(600,100);
 
     // controls
     joystick = new Joystick(0); // Controller in port 0
@@ -191,21 +197,19 @@ public class Robot extends TimedRobot {
 
     // Camera setup
     new Thread(() ->  {
-      CameraServer.startAutomaticCapture().setVideoMode(PixelFormat.kYUYV, 640, 480, 60);
+      CameraServer.startAutomaticCapture().setVideoMode(PixelFormat.kYUYV, 640, 480, 10);
       CvSink cvSink = CameraServer.getVideo();
       outputStream = CameraServer.putVideo("Processed", 640, 480);
 
       Mat mask = new Mat();
 
-      Point p1 = new Point(0,0);
-      Point p2 = new Point(100,100);
       while(!Thread.interrupted())
       {
         if(cvSink.grabFrame(mask) == 0)
         {
           continue;
         }
-        Imgproc.line(mask, p1, p2, new Scalar(255,0,255));
+        Imgproc.rectangle(mask, p1, p2, new Scalar(0,255,255), 5, 8, 0);
         outputStream.putFrame(mask);
       }
 
@@ -421,7 +425,14 @@ public class Robot extends TimedRobot {
 
     // reset encoder for extending arm
     funcMotor9.getEncoder().setPosition(0);
-
+  
+    try {
+      p1 = new Point(0,0);
+      p2 = new Point(300,200);
+      
+    } catch (Exception e) {
+      // TODO: handle exception
+    }
   }
 
   /** This function is called periodically during operator control. */
