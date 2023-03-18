@@ -133,10 +133,9 @@ public class Robot extends TimedRobot {
   Queue<Double> previousAngles;
   double prevSpeed = 0;
   
-  Point p1;
-  Point p2;
+  SynchronousQueue<Point> p1Queue;
+  SynchronousQueue<Point> p2Queue;
   
-
   //AUTONOMOUS TIMER
   double startTime;
   double[] angles;
@@ -157,8 +156,8 @@ public class Robot extends TimedRobot {
     m_chooser.addOption("Test Auto", autoTest);
     SmartDashboard.putData("Auto Routines: ", m_chooser);
 
-    Point p1 = new Point(545,0);
-    Point p2 = new Point(600,100);
+    p1Queue = new SynchronousQueue<Point>();
+    p2Queue = new SynchronousQueue<Point>();
 
     // controls
     joystick = new Joystick(0); // Controller in port 0
@@ -180,7 +179,7 @@ public class Robot extends TimedRobot {
     differentialDrive = new DifferentialDrive(leftMoveMotors, rightMoveMotors);
     
     //functional motors
-    funcMotor9 = new CANSparkMax(9,MotorType.kBrushless);
+    funcMotor9 = new CANSparkMax(9,MotorType.kBrushed);
     funcMotor1 = new VictorSPX(1);
     funcMotor2 = new VictorSPX(2);
     funcMotor3 = new VictorSPX(3);
@@ -197,11 +196,14 @@ public class Robot extends TimedRobot {
 
     // Camera setup
     new Thread(() ->  {
-      CameraServer.startAutomaticCapture().setVideoMode(PixelFormat.kYUYV, 640, 480, 10);
+      CameraServer.startAutomaticCapture().setVideoMode(PixelFormat.kYUYV, 640, 420, 30);
       CvSink cvSink = CameraServer.getVideo();
-      outputStream = CameraServer.putVideo("Processed", 640, 480);
+      outputStream = CameraServer.putVideo("Processed", 640, 420);
 
       Mat mask = new Mat();
+
+      Point p1 = new Point(200,330);
+      Point p2 = new Point(350,480);
 
       while(!Thread.interrupted())
       {
@@ -209,7 +211,11 @@ public class Robot extends TimedRobot {
         {
           continue;
         }
-        Imgproc.rectangle(mask, p1, p2, new Scalar(0,255,255), 5, 8, 0);
+        if (p1Queue.size() + p1Queue.size() > 0) System.out.println("GOOD");
+        if (p1Queue.size() > 0) p1=p1Queue.poll();
+        if (p2Queue.size() > 0) p2=p2Queue.poll();
+        
+        Imgproc.rectangle(mask, p1, p2, new Scalar(0,0,0), 5, 8, 0);
         outputStream.putFrame(mask);
       }
 
@@ -424,15 +430,16 @@ public class Robot extends TimedRobot {
     gravity = builtInAccelerometer.getZ();
 
     // reset encoder for extending arm
-    funcMotor9.getEncoder().setPosition(0);
+    //funcMotor9.getEncoder().setPosition(0);
   
-    try {
-      p1 = new Point(0,0);
-      p2 = new Point(300,200);
+    /*try {
+      p1Queue.put(new Point(0,0));
+      p2Queue.put(new Point(300,200));
       
     } catch (Exception e) {
       // TODO: handle exception
-    }
+      System.out.println("BAD");
+    }*/
   }
 
   /** This function is called periodically during operator control. */
@@ -451,7 +458,7 @@ public class Robot extends TimedRobot {
     maxArmLength -= 3;
 
     // move the arm backwards if extended past max length
-    double curArmLength = baseArmLength + funcMotor9.getEncoder().getPosition() * f9EncoderToInches; //TODO
+    //double curArmLength = baseArmLength + funcMotor9.getEncoder().getPosition() * f9EncoderToInches; //TODO
     
     //accelerometer auto-balance also drive
     if (joystick.getRawButton(autoBalanceBtn))
@@ -509,7 +516,7 @@ public class Robot extends TimedRobot {
       }
       else
       {
-        funcMotor9.set(limiter3.calculate(funcModifier * joystick2.getThrottle() * 0.25));
+        funcMotor9.set(limiter3.calculate(funcModifier * joystick2.getThrottle() * 0.75));
       }
     //}
     //else funcMotor9.set(0.25);
@@ -527,8 +534,8 @@ public class Robot extends TimedRobot {
     }
 
     // gripper
-    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 0.6);
-    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, -0.6);
+    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 1);
+    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, -0.5);
     else funcMotor4.set(ControlMode.PercentOutput, 0);
 
     //accelerometer calibration
@@ -539,7 +546,7 @@ public class Robot extends TimedRobot {
       gravity = builtInAccelerometer.getZ();
 
       // reset encoder for extending arm
-      funcMotor9.getEncoder().setPosition(0);
+      //funcMotor9.getEncoder().setPosition(0);
     }
     //System.out.println("Pot value: " + armAnglePot.getValue() + " | Calculated angle: " + armAngle + " | Arm length: " + curArmLength + " | Max arm length: " + maxArmLength + " | Smallest bound: " + (maxArmLengthFromHorizontalBound < maxArmLengthFromVerticalBound ? "H" : "V") );
 
