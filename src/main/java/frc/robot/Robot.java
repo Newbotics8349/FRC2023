@@ -41,6 +41,7 @@ import javax.lang.model.util.ElementScanner14;
 import org.opencv.core.*;
 
 import java.util.Queue;
+import java.util.concurrent.SynchronousQueue;
 import java.util.LinkedList;
 import java.util.Collections;
 import java.util.ArrayList;
@@ -54,8 +55,10 @@ import edu.wpi.first.wpilibj.ADIS16448_IMU;
  */
 public class Robot extends TimedRobot {
   private static final String autoDrive4FT = "autoDrive4FT";
+  private static final String autoViolentDrive4FT = "autoViolentDrive4FT";
   private static final String autoBalance = "autoBalance";
   private static final String autoLeaveAndBalance = "autoLeaveAndBalance";
+  private static final String autoLeaveFromCharge = "autoLeaveFromCharge";
   private static final String autoTest = "AutoTest";
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
@@ -132,7 +135,8 @@ public class Robot extends TimedRobot {
   Queue<Double> previousAngles;
   double prevSpeed = 0;
   
-
+  SynchronousQueue<Point> p1Queue;
+  SynchronousQueue<Point> p2Queue;
   
   //AUTONOMOUS TIMER
   double startTime;
@@ -149,10 +153,15 @@ public class Robot extends TimedRobot {
   public void robotInit() {
 
     m_chooser.setDefaultOption("Exit Community (Default Auto)", autoDrive4FT);
+    m_chooser.setDefaultOption("Violently Exit Community", autoViolentDrive4FT);
     m_chooser.addOption("Balance on Charge Station", autoBalance);
     m_chooser.addOption("Exit Community, Balance on Charge Station", autoLeaveAndBalance);
+    m_chooser.addOption("Exit Community, Go over Charge Station", autoLeaveFromCharge);
     m_chooser.addOption("Test Auto", autoTest);
     SmartDashboard.putData("Auto Routines: ", m_chooser);
+
+    p1Queue = new SynchronousQueue<Point>();
+    p2Queue = new SynchronousQueue<Point>();
 
     // controls
     joystick = new Joystick(0); // Controller in port 0
@@ -174,7 +183,7 @@ public class Robot extends TimedRobot {
     differentialDrive = new DifferentialDrive(leftMoveMotors, rightMoveMotors);
     
     //functional motors
-    funcMotor9 = new CANSparkMax(9,MotorType.kBrushless);
+    funcMotor9 = new CANSparkMax(9,MotorType.kBrushed);
     funcMotor1 = new VictorSPX(1);
     funcMotor2 = new VictorSPX(2);
     funcMotor3 = new VictorSPX(3);
@@ -191,21 +200,29 @@ public class Robot extends TimedRobot {
 
     // Camera setup
     new Thread(() ->  {
-      CameraServer.startAutomaticCapture().setVideoMode(PixelFormat.kYUYV, 640, 480, 60);
+      CameraServer.startAutomaticCapture().setVideoMode(PixelFormat.kYUYV, 640, 420, 30);
       CvSink cvSink = CameraServer.getVideo();
-      outputStream = CameraServer.putVideo("Processed", 640, 480);
+      outputStream = CameraServer.putVideo("Processed", 640, 420);
 
       Mat mask = new Mat();
 
-      Point p1 = new Point(0,0);
-      Point p2 = new Point(100,100);
+      Point p1 = new Point(320,330);
+      Point p2 = new Point(320,420);
+      Point p3 = new Point(280,330);
+      Point p4 = new Point(360,330);
+
       while(!Thread.interrupted())
       {
         if(cvSink.grabFrame(mask) == 0)
         {
           continue;
         }
-        Imgproc.line(mask, p1, p2, new Scalar(255,0,255));
+        if (p1Queue.size() + p1Queue.size() > 0) System.out.println("GOOD");
+        if (p1Queue.size() > 0) p1=p1Queue.poll();
+        if (p2Queue.size() > 0) p2=p2Queue.poll();
+        
+        Imgproc.line(mask, p1, p2, new Scalar(0,0,0), 2, 8, 0);
+        Imgproc.line(mask, p3, p4, new Scalar(0,0,0), 2, 8, 0);
         outputStream.putFrame(mask);
       }
 
@@ -273,11 +290,24 @@ public class Robot extends TimedRobot {
         {
           moveStraight(0);
         }
-        //double pitchAngle = ((builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity))*90;
-        //System.out.println(pitchAngle);
         break;
 
-
+      case autoViolentDrive4FT:
+        final double violentDistanceInInchesToMove = 6;
+        final double totalDistanceInInchesToMove = 48; // moves 60 in practice
+        final double inchesPerEncoderClick3 =  1.76;
+        if(Math.abs(moveMotorID5.getEncoder().getPosition()) < totalDistanceInInchesToMove/inchesPerEncoderClick3)
+        {
+          if(Math.abs(moveMotorID5.getEncoder().getPosition()) < violentDistanceInInchesToMove/inchesPerEncoderClick3)
+            moveStraight(0.5);
+          else
+            moveStraight(0.1);
+        }
+        else 
+        {
+          moveStraight(0);
+        }
+        break;
       // this our auto mode that should move forward and balance on the charging station
       case autoBalance:
         // autonomous mode that should: 
@@ -293,7 +323,7 @@ public class Robot extends TimedRobot {
         if (robotIsMovingForward) // this is where the robot initially moves forward.
         {
           // move forward
-          prevSpeed = (prevSpeed*0.99)+(0.01*0.15);
+          prevSpeed = (prevSpeed*0.80)+(0.20*0.35);
           moveStraight(prevSpeed);
           
           // if an angle is detected, toggle variable
@@ -328,7 +358,7 @@ public class Robot extends TimedRobot {
         if (robotIsMovingForward) // this is where the robot initially moves forward.
         {
           // move forward
-          prevSpeed = (prevSpeed*0.99)+(0.01*0.15);
+          prevSpeed = (prevSpeed*0.8)+(0.2*0.4);
           moveStraight(prevSpeed);
           
           // if an angle is detected, toggle variable
@@ -340,7 +370,7 @@ public class Robot extends TimedRobot {
         }
         else if(robotIsOnChargeStation)
         {
-          final double distanceInInchesToMove2 = 80; // moves 60 in practice
+          final double distanceInInchesToMove2 = 86; // moves 60 in practice
           final double inchesPerEncoderClick2 =  1.76;
           if(Math.abs(moveMotorID5.getEncoder().getPosition()) < distanceInInchesToMove2/inchesPerEncoderClick2)
           {
@@ -355,11 +385,11 @@ public class Robot extends TimedRobot {
         else if(robotIsMovingBackward)
         {
           // move forward
-          prevSpeed = (prevSpeed*0.99)+(0.01*-0.15);
+          prevSpeed = (prevSpeed*0.9)+(0.1*-0.5);
           moveStraight(prevSpeed);
           
           // if an angle is detected, toggle variable
-          if (Math.abs(pitchAngle) > 7.5) {  // TODO: this angle constant will need some tuning with the robot!!, this should probably be the average angle as well
+          if (Math.abs(pitchAngle) > 10) {  // TODO: this angle constant will need some tuning with the robot!!, this should probably be the average angle as well
             robotIsBalancingOnChargeStation = true;
             robotIsMovingBackward = false;
           }
@@ -368,12 +398,12 @@ public class Robot extends TimedRobot {
         {
           if (Math.abs(pitchAngle)>10)
           {
-            prevSpeed = (prevSpeed*0.7)+(0.3*(-0.13))*(pitchAngle/Math.abs(pitchAngle));
+            prevSpeed = (prevSpeed*0.7)+(0.3*(-0.17))*(pitchAngle/Math.abs(pitchAngle));
             moveStraight(prevSpeed);
           }
           else if(Math.abs(pitchAngle)>5)
           {
-            prevSpeed = (prevSpeed*0.6)+(0.4*(-0.07))*(pitchAngle/Math.abs(pitchAngle));
+            prevSpeed = (prevSpeed*0.6)+(0.4*(-0.0))*(pitchAngle/Math.abs(pitchAngle));
             moveStraight(prevSpeed);
           }
           else{
@@ -381,7 +411,38 @@ public class Robot extends TimedRobot {
           }
         }
         break;
+      case autoLeaveFromCharge:
+        pitchAngle = gyro.getGyroAngleY();    
+        System.out.println(pitchAngle + " | " + robotIsOnChargeStation);
 
+        if (robotIsMovingForward) // this is where the robot initially moves forward.
+        {
+          // move forward
+          prevSpeed = (prevSpeed*0.8)+(0.2*0.35);
+          moveStraight(prevSpeed);
+          
+          // if an angle is detected, toggle variable
+          if (Math.abs(pitchAngle) > 7.5) {  // TODO: this angle constant will need some tuning with the robot!!, this should probably be the average angle as well
+            robotIsOnChargeStation = true;
+            robotIsMovingForward = false;
+            moveMotorID5.getEncoder().setPosition(0);
+          }
+        }
+        else if(robotIsOnChargeStation)
+        {
+          final double distanceInInchesToMove2 = 86; // moves 60 in practice
+          final double inchesPerEncoderClick2 =  1.76;
+          if(Math.abs(moveMotorID5.getEncoder().getPosition()) < distanceInInchesToMove2/inchesPerEncoderClick2)
+          {
+            moveStraight(0.2);
+          }
+          else 
+          {
+            robotIsMovingBackward = true;
+            robotIsOnChargeStation = false;
+          }
+        }
+        break;
       case autoTest:
         
         /*double tilt = (builtInAccelerometer.getY()-pitchBias)/Math.abs(gravity)*90;
@@ -420,8 +481,16 @@ public class Robot extends TimedRobot {
     gravity = builtInAccelerometer.getZ();
 
     // reset encoder for extending arm
-    funcMotor9.getEncoder().setPosition(0);
-
+    //funcMotor9.getEncoder().setPosition(0);
+  
+    /*try {
+      p1Queue.put(new Point(0,0));
+      p2Queue.put(new Point(300,200));
+      
+    } catch (Exception e) {
+      // TODO: handle exception
+      System.out.println("BAD");
+    }*/
   }
 
   /** This function is called periodically during operator control. */
@@ -440,7 +509,7 @@ public class Robot extends TimedRobot {
     maxArmLength -= 3;
 
     // move the arm backwards if extended past max length
-    double curArmLength = baseArmLength + funcMotor9.getEncoder().getPosition() * f9EncoderToInches; //TODO
+    //double curArmLength = baseArmLength + funcMotor9.getEncoder().getPosition() * f9EncoderToInches; //TODO
     
     //accelerometer auto-balance also drive
     if (joystick.getRawButton(autoBalanceBtn))
@@ -461,7 +530,7 @@ public class Robot extends TimedRobot {
       if(joystick.getRawButton(7) || joystick.getRawButton(8))
         differentialDrive.arcadeDrive(limiter0.calculate(joystick.getX() * driveSpeed * 0.5), limiter1.calculate(joystick.getY() * driveSpeed));
       else
-      differentialDrive.arcadeDrive(limiter0.calculate(joystick.getX() * driveSpeed * 0.5), limiter1.calculate(joystick.getY() * driveSpeed * 0.6));
+      differentialDrive.arcadeDrive(limiter0.calculate(joystick.getX() * driveSpeed * 0.5), limiter1.calculate(joystick.getY() * driveSpeed * 0.7));
 
     }
 
@@ -498,7 +567,7 @@ public class Robot extends TimedRobot {
       }
       else
       {
-        funcMotor9.set(limiter3.calculate(funcModifier * joystick2.getThrottle() * 0.25));
+        funcMotor9.set(limiter3.calculate(funcModifier * joystick2.getThrottle() * 0.5));
       }
     //}
     //else funcMotor9.set(0.25);
@@ -516,8 +585,8 @@ public class Robot extends TimedRobot {
     }
 
     // gripper
-    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 0.6);
-    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, -0.6);
+    if (joystick2.getRawButton(openGripper)) funcMotor4.set(ControlMode.PercentOutput, 1);
+    else if (joystick2.getRawButton(closeGripper)) funcMotor4.set(ControlMode.PercentOutput, -0.5);
     else funcMotor4.set(ControlMode.PercentOutput, 0);
 
     //accelerometer calibration
@@ -528,7 +597,7 @@ public class Robot extends TimedRobot {
       gravity = builtInAccelerometer.getZ();
 
       // reset encoder for extending arm
-      funcMotor9.getEncoder().setPosition(0);
+      //funcMotor9.getEncoder().setPosition(0);
     }
     //System.out.println("Pot value: " + armAnglePot.getValue() + " | Calculated angle: " + armAngle + " | Arm length: " + curArmLength + " | Max arm length: " + maxArmLength + " | Smallest bound: " + (maxArmLengthFromHorizontalBound < maxArmLengthFromVerticalBound ? "H" : "V") );
 
